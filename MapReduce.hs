@@ -27,8 +27,9 @@ data Gossip = Gossip
 serialize :: Gossip -> DBL.ByteString
 serialize = encode
 
--- deserialize :: ByteString -> Maybe Gossip
--- deserialize = decode
+deserialize :: DBL.ByteString -> Maybe Gossip
+deserialize = decode
+
 sampleGossip :: Gossip
 sampleGossip =
   Gossip
@@ -46,20 +47,11 @@ mainLoop sock chan msgNum = do
   forkIO (runConn conn chan msgNum)
   mainLoop sock chan $! msgNum + 1
 
--- sendAll :: Socket -> ByteString -> IO ()
--- sendAll sock bs = do
---   sent <- send sock bs
---   if sent < Data.ByteString.length bs
---     then sendAll sock (Data.ByteString.drop sent bs)
---     else return ()
 runConn :: (Socket, SockAddr) -> Chan Gossip -> Int -> IO ()
 runConn (sock, _) chan msgNum = do
   sendAll sock (DB.concat $ DBL.toChunks $ encode sampleGossip)
   print "done"
 
---   hdl <- socketToHandle sock ReadWriteMode
---   hSetBuffering hdl NoBuffering
---   hPutStrLn hdl "whatever"
 main :: IO ()
 main = do
   -- create, bind and listen on socket
