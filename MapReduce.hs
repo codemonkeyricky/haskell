@@ -29,14 +29,14 @@ data Gossip = Gossip
 data Message
   = NewConnection Int
   | ReceivedGossip Int Gossip
-  | Ping Socket
+  | Ping
   | AddNode
-  deriving (Show)
+  deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-serialize :: Gossip -> DBL.ByteString
+serialize :: Message -> DBL.ByteString
 serialize = encode
 
-deserialize :: DBL.ByteString -> Maybe Gossip
+deserialize :: DBL.ByteString -> Maybe Message
 deserialize = decode
 
 sampleGossip :: Gossip
@@ -60,7 +60,7 @@ node port msgNum = do
           case msg of
             NewConnection id -> print "test"
             ReceivedGossip id gossip -> print "test"
-            Ping sock -> print "Ping!"
+            Ping -> print "Ping!"
             AddNode -> do
               void $ forkIO $ node (port + 1) 0
               eventLoop (port + 1) chan
@@ -83,9 +83,8 @@ connHandler (sock, _) chan msgNum = do
         msg <- recv sock 4096
         when (DB.null msg) $ return () -- connection terminated
         case deserialize (DBL.fromStrict msg) of
-          Just gossip -> do
-            writeChan chan (ReceivedGossip msgNum gossip)
-          Nothing -> print "Invalid message!"
+          Just event -> writeChan chan event
+          Nothing    -> print "Invalid message!"
         loop
 
 main :: IO ()
