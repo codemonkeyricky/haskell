@@ -62,7 +62,7 @@ node port msgNum = do
             NewConnection id -> print "test"
             ReceivedGossip id gossip -> print "test"
             Ping -> do
-              sendAll sock (serialize Pong . DBL.toStrict)
+              sendAll sock (DBL.toStrict $ serialize Pong)
             AddNode -> do
               void $ forkIO $ node (port + 1) 0
               eventLoop (port + 1) chan
