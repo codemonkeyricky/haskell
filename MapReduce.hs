@@ -53,9 +53,9 @@ deserialize = decode
 -- port / peer
 node :: PortNumber -> String -> IO ()
 node port peer = do
-  let eventLoop port chan =
+  let eventLoop port rx =
         forever $ do
-          (tx, msg) <- readChan chan
+          (tx, msg) <- readChan rx
           case msg of
             NewConnection id      -> print "test"
             GossipRequest cluster -> print "test"
@@ -64,12 +64,12 @@ node port peer = do
             -- AddNode -> do
             --   void $ forkIO $ node (port + 1)
             --   eventLoop (port + 1) chan
-  let connAcceptor sock chan =
+  let connAcceptor sock rx =
         forever $ do
           conn <- accept sock
-          forkIO (rxPacket conn chan)
+          forkIO (rxPacket conn rx)
   -- create socket and channel
-  chan <- newChan
+  rx <- newChan
   sock <- socket AF_INET Stream defaultProtocol
   bind sock (SockAddrInet port 0)
   listen sock 5
@@ -78,9 +78,9 @@ node port peer = do
         Cluster
           {servers = [Server {address = "localhost" ++ show port, version = 1}]}
   -- main event loop
-  _ <- forkIO $ eventLoop port chan
+  _ <- forkIO $ eventLoop port rx
   -- connection forker
-  _ <- forkIO $ connAcceptor sock chan
+  _ <- forkIO $ connAcceptor sock rx
   -- when (peer /= "") $ do
   --   let (host, portStr) = break (== ':') peer
   --   let peerPort = read (drop 1 portStr) :: PortNumber
