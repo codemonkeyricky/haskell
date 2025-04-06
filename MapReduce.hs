@@ -21,43 +21,33 @@ import           System.IO
 
 data Server = Server
   { address :: String
-  , asset   :: [String]
   , version :: Integer
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-data Gossip = Gossip
+data Cluster = Cluster
   { servers :: [Server]
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Message
   = NewConnection Int
-  | GossipType Gossip
+  | Gossip Cluster
   | Ping
   | Pong
   | AddNode
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-merge :: Gossip -> Gossip -> Gossip
-merge (Gossip a) (Gossip b) =
+merge :: Cluster -> Cluster -> Cluster
+merge (Cluster a) (Cluster b) =
   let c = a ++ b
       sorted = sortOn (Down . version) c -- sort by descending version
       merged = nubBy (on (==) address) sorted -- keep first occurence
-   in Gossip merged
+   in Cluster merged
 
 serialize :: Message -> DBL.ByteString
 serialize = encode
 
 deserialize :: DBL.ByteString -> Maybe Message
 deserialize = decode
-
-sampleGossip :: Gossip
-sampleGossip =
-  Gossip
-    { servers =
-        [ Server
-            {address = "localhost:3000", asset = ["BTC", "ETH"], version = 1}
-        ]
-    }
 
 node :: PortNumber -> Int -> IO ()
 node port msgNum = do
@@ -66,7 +56,7 @@ node port msgNum = do
           (sock, msg) <- readChan chan
           case msg of
             NewConnection id -> print "test"
-            GossipType gossip -> print "test"
+            Gossip cluster -> print "test"
             Ping -> do
               sendAll sock (DBL.toStrict $ serialize Pong)
             AddNode -> do
@@ -77,6 +67,9 @@ node port msgNum = do
   sock <- socket AF_INET Stream defaultProtocol
   bind sock (SockAddrInet port 0)
   listen sock 5
+  -- sampleGossip :: Gossip
+  let state =
+        Cluster {servers = [Server {address = "localhost:3000", version = 1}]}
   -- main event loop
   _ <- forkIO $ eventLoop port chan
   -- connection forker
