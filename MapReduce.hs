@@ -24,6 +24,11 @@ data Gossip = Gossip
   { servers :: [Server]
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
+data Message
+  = NewConnection Int
+  | ReceivedGossip Int Gossip
+  deriving (Show)
+
 serialize :: Gossip -> DBL.ByteString
 serialize = encode
 
@@ -35,23 +40,42 @@ sampleGossip =
   Gossip
     { servers =
         [ Server
-            {address = "127.0.0.1:8000", asset = ["BTC", "ETH"], version = 1}
-        , Server
-            {address = "127.0.0.1:8001", asset = ["XRP", "LTC"], version = 2}
+            {address = "localhost:3000", asset = ["BTC", "ETH"], version = 1}
         ]
     }
 
-mainLoop :: Socket -> Chan Gossip -> Int -> IO ()
+mainLoop :: Socket -> Chan Message -> Int -> IO ()
 mainLoop sock chan msgNum = do
-  conn <- accept sock
-  forkIO (runConn conn chan msgNum)
-  mainLoop sock chan $! msgNum + 1
+  -- main event loop
+  _ <-
+    forkIO
+      $ forever
+      $ do
+          msg <- readChan chan
+          case msg of
+            NewConnection id         -> print "test"
+            ReceivedGossip id gossip -> print "test"
+  -- connection forker
+  forever $ do
+    conn <- accept sock
+    forkIO (connectionHandler conn chan msgNum)
+    mainLoop sock chan $! msgNum + 1
 
-runConn :: (Socket, SockAddr) -> Chan Gossip -> Int -> IO ()
-runConn (sock, _) chan msgNum = do
-  sendAll sock (DB.concat $ DBL.toChunks $ encode sampleGossip)
-  print "done"
+connectionHandler :: (Socket, SockAddr) -> Chan Message -> Int -> IO ()
+connectionHandler (sock, _) chan msgNum = do
+  handle (\(SomeException _) -> return ())
+    $ fix
+    $ \loop -> do
+        msg <- recv sock 4096
+        when (DB.null msg) $ return () -- connection terminated
+        case deserialize (DBL.fromStrict msg) of
+          Just gossip -> do
+            writeChan chan (ReceivedGossip msgNum gossip)
+          Nothing -> print "Invalid message!"
+        loop
 
+--   sendAll sock (DB.concat $ DBL.toChunks $ encode sampleGossip)
+--   print "done"
 main :: IO ()
 main = do
   -- create, bind and listen on socket
