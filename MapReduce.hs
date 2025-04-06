@@ -29,6 +29,7 @@ data Gossip = Gossip
 data Message
   = NewConnection Int
   | ReceivedGossip Int Gossip
+  | Ping Socket
   | AddNode
   deriving (Show)
 
@@ -59,6 +60,7 @@ node port msgNum = do
           case msg of
             NewConnection id -> print "test"
             ReceivedGossip id gossip -> print "test"
+            Ping sock -> print "Ping!"
             AddNode -> do
               void $ forkIO $ node (port + 1) 0
               eventLoop (port + 1) chan
