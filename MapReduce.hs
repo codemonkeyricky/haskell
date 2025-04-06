@@ -60,11 +60,11 @@ mainLoop sock chan msgNum = do
   -- connection forker
   forever $ do
     conn <- accept sock
-    forkIO (connectionHandler conn chan msgNum)
+    forkIO (connHandler conn chan msgNum)
     mainLoop sock chan $! msgNum + 1
 
-connectionHandler :: (Socket, SockAddr) -> Chan Message -> Int -> IO ()
-connectionHandler (sock, _) chan msgNum = do
+connHandler :: (Socket, SockAddr) -> Chan Message -> Int -> IO ()
+connHandler (sock, _) chan msgNum = do
   handle (\(SomeException _) -> return ())
     $ fix
     $ \loop -> do
