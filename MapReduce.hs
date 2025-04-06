@@ -37,16 +37,6 @@ data Message
   | AddNode
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
--- Merges two Gossip values, keeping the server with higher version when addresses conflict
--- mergeGossip :: Gossip -> Gossip -> Gossip
--- mergeGossip (Gossip serversA) (Gossip serversB) =
---   let allServers = serversA ++ serversB
---       -- Sort by version descending so highest version comes first for each address
---       sorted = sortOn (Down . version) allServers
---       -- Keep first occurrence of each address (which will have highest version)
---       merged = nubBy ((==) `on` address) sorted
---    in Gossip merged
--- Merges two Gossip values, keeping the server with higher version when addresses conflict
 merge :: Gossip -> Gossip -> Gossip
 merge (Gossip a) (Gossip b) =
   let c = a ++ b
@@ -71,10 +61,6 @@ sampleGossip =
 
 node :: PortNumber -> Int -> IO ()
 node port msgNum = do
-  chan <- newChan
-  sock <- socket AF_INET Stream defaultProtocol
-  bind sock (SockAddrInet port 0)
-  listen sock 5
   let eventLoop port chan =
         forever $ do
           (sock, msg) <- readChan chan
@@ -86,6 +72,11 @@ node port msgNum = do
             AddNode -> do
               void $ forkIO $ node (port + 1) 0
               eventLoop (port + 1) chan
+  -- create socket and channel
+  chan <- newChan
+  sock <- socket AF_INET Stream defaultProtocol
+  bind sock (SockAddrInet port 0)
+  listen sock 5
   -- main event loop
   _ <- forkIO $ eventLoop port chan
   -- connection forker
