@@ -91,18 +91,6 @@ connHandler (sock, _) chan msgNum = do
 
 main :: IO ()
 main = do
---   args <- getArgs
---   port <-
---     case args of
---       [portStr] ->
---         case reads portStr :: [(Int, String)] of
---           [(port, "")] -> return port
---       _ -> do
---         print "require port"
---         exitFailure
---   print port
-  -- create, bind and listen on socket
-  -- create new channel
-  -- enter main loop
+  DBL.putStr (serialize (Ping))
   node 3000 0
   print "hello"
