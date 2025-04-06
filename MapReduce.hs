@@ -50,8 +50,8 @@ deserialize :: DBL.ByteString -> Maybe Message
 deserialize = decode
 
 -- port / peer
-node :: PortNumber -> IO ()
-node port = do
+node :: PortNumber -> String -> IO ()
+node port peer = do
   let eventLoop port chan =
         forever $ do
           (sock, msg) <- readChan chan
@@ -60,14 +60,13 @@ node port = do
             Gossip cluster -> print "test"
             Ping -> do
               sendAll sock (DBL.toStrict $ serialize Pong)
-            AddNode -> do
-              void $ forkIO $ node (port + 1)
-              eventLoop (port + 1) chan
-  let connAcceptor sock chan = 
-    forever $ do 
-      conn <- accept sock
-      forkIO (connHandler conn chan)
-
+            -- AddNode -> do
+            --   void $ forkIO $ node (port + 1)
+            --   eventLoop (port + 1) chan
+  let connAcceptor sock chan =
+        forever $ do
+          conn <- accept sock
+          forkIO (connHandler conn chan)
   -- create socket and channel
   chan <- newChan
   sock <- socket AF_INET Stream defaultProtocol
@@ -80,12 +79,8 @@ node port = do
   -- main event loop
   _ <- forkIO $ eventLoop port chan
   -- connection forker
-
-  -- _ <- forkIO $ eventLoop port chan
-
-  forever $ do
-    conn <- accept sock
-    forkIO (connHandler conn chan)
+  _ <- forkIO $ connAcceptor sock chan
+  print "node create complete"
 
 connHandler :: (Socket, SockAddr) -> Chan (Socket, Message) -> IO ()
 connHandler (sock, _) chan = do
@@ -104,5 +99,6 @@ connHandler (sock, _) chan = do
 main :: IO ()
 main = do
   DBL.putStr (serialize (Ping))
-  node 3000
+  node 3000 ""
+  node 3001 "localhost:3000"
   print "hello"
