@@ -77,6 +77,12 @@ node port peer = do
   _ <- forkIO $ eventLoop port rx
   -- connection forker
   _ <- forkIO $ connAcceptor sock rx
+  -- when (peer /= "") $ do
+  --   let (host, portStr) = break (== ':') peer
+  --   let peerPort = read (drop 1 portStr) :: PortNumber
+  --   sockToPeer <- socket AF_INET Stream defaultProtocol
+  --   connect sockToPeer (SockAddrInet peerPort 0)
+  --   writeChan chan (sockToPeer, Ping)
   print "node create complete"
 
 rxEvent :: Socket -> Chan (Chan Message, Message) -> Message -> IO ()
@@ -105,4 +111,5 @@ main = do
   DBL.putStr (serialize (Ping))
   node 3000 ""
   node 3001 "localhost:3000"
+  forever $ threadDelay maxBound
   print "hello"
