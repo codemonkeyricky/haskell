@@ -4,7 +4,7 @@ module Main where
 
 import           Control.Concurrent
 import           Control.Exception
-import           Control.Monad             (forever, when)
+import           Control.Monad             (forever, void, when)
 import           Control.Monad.Fix         (fix)
 import           Data.Aeson                (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString           as DB
@@ -57,10 +57,13 @@ node port msgNum = do
         forever $ do
           msg <- readChan chan
           case msg of
-            NewConnection id         -> print "test"
+            NewConnection id -> print "test"
             ReceivedGossip id gossip -> print "test"
-            AddNode                  -> print "test" -- TODO
+            AddNode -> do
+              void $ forkIO $ node (port + 1) 0
+              eventLoop (port + 1) chan
   -- main event loop
+  _ <- forkIO $ eventLoop port chan
   -- connection forker
   forever $ do
     conn <- accept sock
