@@ -80,6 +80,12 @@ node port peer = do
   _ <- forkIO $ eventLoop port chan
   -- connection forker
   _ <- forkIO $ connAcceptor sock chan
+  when (peer /= "") $ do
+    let (host, portStr) = break (== ':') peer
+    let peerPort = read (drop 1 portStr) :: PortNumber
+    sockToPeer <- socket AF_INET Stream defaultProtocol
+    connect sockToPeer (SockAddrInet peerPort 0)
+    writeChan chan (sockToPeer, Ping)
   print "node create complete"
 
 connHandler :: (Socket, SockAddr) -> Chan (Socket, Message) -> IO ()
