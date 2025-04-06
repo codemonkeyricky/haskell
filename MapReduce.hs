@@ -29,6 +29,7 @@ data Gossip = Gossip
 data Message
   = NewConnection Int
   | ReceivedGossip Int Gossip
+  | AddNode
   deriving (Show)
 
 serialize :: Gossip -> DBL.ByteString
@@ -57,11 +58,11 @@ mainLoop sock chan msgNum = do
           case msg of
             NewConnection id         -> print "test"
             ReceivedGossip id gossip -> print "test"
+            AddNode                  -> print "test"
   -- connection forker
   forever $ do
     conn <- accept sock
     forkIO (connHandler conn chan msgNum)
-    mainLoop sock chan $! msgNum + 1
 
 connHandler :: (Socket, SockAddr) -> Chan Message -> Int -> IO ()
 connHandler (sock, _) chan msgNum = do
