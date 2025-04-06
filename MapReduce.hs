@@ -9,6 +9,9 @@ import           Control.Monad.Fix         (fix)
 import           Data.Aeson                (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString           as DB
 import qualified Data.ByteString.Lazy      as DBL
+import           Data.Function             (on)
+import           Data.List                 (nubBy, sortOn)
+import           Data.Ord                  (Down (..))
 import           GHC.Generics              (Generic)
 import           Network.Socket
 import           Network.Socket.ByteString
@@ -33,6 +36,23 @@ data Message
   | Pong
   | AddNode
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
+
+-- Merges two Gossip values, keeping the server with higher version when addresses conflict
+-- mergeGossip :: Gossip -> Gossip -> Gossip
+-- mergeGossip (Gossip serversA) (Gossip serversB) =
+--   let allServers = serversA ++ serversB
+--       -- Sort by version descending so highest version comes first for each address
+--       sorted = sortOn (Down . version) allServers
+--       -- Keep first occurrence of each address (which will have highest version)
+--       merged = nubBy ((==) `on` address) sorted
+--    in Gossip merged
+-- Merges two Gossip values, keeping the server with higher version when addresses conflict
+merge :: Gossip -> Gossip -> Gossip
+merge (Gossip a) (Gossip b) =
+  let c = a ++ b
+      sorted = sortOn (Down . version) c -- sort by descending version
+      merged = nubBy (on (==) address) sorted -- keep first occurence
+   in Gossip merged
 
 serialize :: Message -> DBL.ByteString
 serialize = encode
