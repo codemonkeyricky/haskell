@@ -73,21 +73,19 @@ node port msgNum = do
     conn <- accept sock
     forkIO (connHandler conn chan msgNum)
 
---   _ <-
---     forkIO
---       $ forever
---       $ do
 connHandler :: (Socket, SockAddr) -> Chan (Socket, Message) -> Int -> IO ()
 connHandler (sock, _) chan msgNum = do
   handle (\(SomeException _) -> return ())
     $ fix
     $ \loop -> do
         msg <- recv sock 4096
-        when (DB.null msg) $ return () -- connection terminated
-        case deserialize (DBL.fromStrict msg) of
-          Just event -> writeChan chan (sock, event)
-          Nothing    -> print "Invalid message!"
-        loop
+        if DB.null msg
+          then return ()
+          else do
+            case deserialize (DBL.fromStrict msg) of
+              Just event -> writeChan chan (sock, event)
+              Nothing    -> print "Invalid message!"
+            loop
 
 main :: IO ()
 main = do
