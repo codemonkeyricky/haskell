@@ -63,6 +63,11 @@ node port = do
             AddNode -> do
               void $ forkIO $ node (port + 1)
               eventLoop (port + 1) chan
+  let connAcceptor sock chan = 
+    forever $ do 
+      conn <- accept sock
+      forkIO (connHandler conn chan)
+
   -- create socket and channel
   chan <- newChan
   sock <- socket AF_INET Stream defaultProtocol
@@ -75,6 +80,9 @@ node port = do
   -- main event loop
   _ <- forkIO $ eventLoop port chan
   -- connection forker
+
+  -- _ <- forkIO $ eventLoop port chan
+
   forever $ do
     conn <- accept sock
     forkIO (connHandler conn chan)
