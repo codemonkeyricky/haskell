@@ -56,7 +56,7 @@ node port msgNum = do
   listen sock 5
   let eventLoop port chan =
         forever $ do
-          msg <- readChan chan
+          (sender_sock, msg) <- readChan chan
           case msg of
             NewConnection id -> print "test"
             ReceivedGossip id gossip -> print "test"
@@ -75,7 +75,7 @@ node port msgNum = do
 --     forkIO
 --       $ forever
 --       $ do
-connHandler :: (Socket, SockAddr) -> Chan Message -> Int -> IO ()
+connHandler :: (Socket, SockAddr) -> Chan (Socket, Message) -> Int -> IO ()
 connHandler (sock, _) chan msgNum = do
   handle (\(SomeException _) -> return ())
     $ fix
@@ -83,7 +83,7 @@ connHandler (sock, _) chan msgNum = do
         msg <- recv sock 4096
         when (DB.null msg) $ return () -- connection terminated
         case deserialize (DBL.fromStrict msg) of
-          Just event -> writeChan chan event
+          Just event -> writeChan chan (sock, event)
           Nothing    -> print "Invalid message!"
         loop
 
