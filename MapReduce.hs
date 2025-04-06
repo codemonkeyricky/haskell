@@ -59,8 +59,7 @@ node port peer = do
           case msg of
             NewConnection id      -> print "test"
             GossipRequest cluster -> print "test"
-            -- Ping -> do
-            --   sendAll sock (DBL.toStrict $ serialize Pong)
+            Ping                  -> writeChan tx Pong
             -- AddNode -> do
             --   void $ forkIO $ node (port + 1)
             --   eventLoop (port + 1) chan
