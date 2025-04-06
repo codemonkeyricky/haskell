@@ -47,26 +47,29 @@ sampleGossip =
         ]
     }
 
-mainLoop :: PortNumber -> Chan Message -> Int -> IO ()
-mainLoop port chan msgNum = do
+node :: PortNumber -> Int -> IO ()
+node port msgNum = do
+  chan <- newChan
   sock <- socket AF_INET Stream defaultProtocol
   bind sock (SockAddrInet port 0)
   listen sock 5
-  -- main event loop
-  _ <-
-    forkIO
-      $ forever
-      $ do
+  let eventLoop port chan =
+        forever $ do
           msg <- readChan chan
           case msg of
             NewConnection id         -> print "test"
             ReceivedGossip id gossip -> print "test"
-            AddNode                  -> print "test"
+            AddNode                  -> print "test" -- TODO
+  -- main event loop
   -- connection forker
   forever $ do
     conn <- accept sock
     forkIO (connHandler conn chan msgNum)
 
+--   _ <-
+--     forkIO
+--       $ forever
+--       $ do
 connHandler :: (Socket, SockAddr) -> Chan Message -> Int -> IO ()
 connHandler (sock, _) chan msgNum = do
   handle (\(SomeException _) -> return ())
@@ -94,7 +97,6 @@ main = do
 --   print port
   -- create, bind and listen on socket
   -- create new channel
-  chan <- newChan
   -- enter main loop
-  mainLoop 3000 chan 0
+  node 3000 0
   print "hello"
