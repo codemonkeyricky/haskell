@@ -30,6 +30,7 @@ data Message
   = NewConnection Int
   | ReceivedGossip Int Gossip
   | Ping
+  | Pong
   | AddNode
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
@@ -56,11 +57,12 @@ node port msgNum = do
   listen sock 5
   let eventLoop port chan =
         forever $ do
-          (sender_sock, msg) <- readChan chan
+          (sock, msg) <- readChan chan
           case msg of
             NewConnection id -> print "test"
             ReceivedGossip id gossip -> print "test"
-            Ping -> print "Ping!"
+            Ping -> do
+              sendAll sock (DBL.toStrict $ serialize Pong)
             AddNode -> do
               void $ forkIO $ node (port + 1) 0
               eventLoop (port + 1) chan
