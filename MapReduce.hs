@@ -47,8 +47,11 @@ sampleGossip =
         ]
     }
 
-mainLoop :: Socket -> Chan Message -> Int -> IO ()
-mainLoop sock chan msgNum = do
+mainLoop :: PortNumber -> Chan Message -> Int -> IO ()
+mainLoop port chan msgNum = do
+  sock <- socket AF_INET Stream defaultProtocol
+  bind sock (SockAddrInet port 0)
+  listen sock 5
   -- main event loop
   _ <-
     forkIO
@@ -90,11 +93,8 @@ main = do
 --         exitFailure
 --   print port
   -- create, bind and listen on socket
-  sock <- socket AF_INET Stream defaultProtocol
-  bind sock (SockAddrInet 3000 0)
-  listen sock 5
   -- create new channel
   chan <- newChan
   -- enter main loop
-  mainLoop sock chan 0
+  mainLoop 3000 chan 0
   print "hello"
