@@ -30,7 +30,8 @@ data Cluster = Cluster
 
 data Message
   = NewConnection Int
-  | Gossip Cluster
+  | GossipRequest Cluster
+  | GossipReply Cluster
   | Ping
   | Pong
   | AddNode
@@ -57,7 +58,7 @@ node port peer = do
           (sock, msg) <- readChan chan
           case msg of
             NewConnection id -> print "test"
-            Gossip cluster -> print "test"
+            GossipRequest cluster -> print "test"
             Ping -> do
               sendAll sock (DBL.toStrict $ serialize Pong)
             -- AddNode -> do
@@ -66,7 +67,7 @@ node port peer = do
   let connAcceptor sock chan =
         forever $ do
           conn <- accept sock
-          forkIO (connHandler conn chan)
+          forkIO (rxHandler conn chan)
   -- create socket and channel
   chan <- newChan
   sock <- socket AF_INET Stream defaultProtocol
@@ -88,8 +89,8 @@ node port peer = do
     writeChan chan (sockToPeer, Ping)
   print "node create complete"
 
-connHandler :: (Socket, SockAddr) -> Chan (Socket, Message) -> IO ()
-connHandler (sock, _) chan = do
+rxHandler :: (Socket, SockAddr) -> Chan (Socket, Message) -> IO ()
+rxHandler (sock, _) chan = do
   handle (\(SomeException _) -> return ())
     $ fix
     $ \loop -> do
