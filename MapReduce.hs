@@ -28,7 +28,7 @@ data Gossip = Gossip
 
 data Message
   = NewConnection Int
-  | ReceivedGossip Int Gossip
+  | GossipType Gossip
   | Ping
   | Pong
   | AddNode
@@ -60,7 +60,7 @@ node port msgNum = do
           (sock, msg) <- readChan chan
           case msg of
             NewConnection id -> print "test"
-            ReceivedGossip id gossip -> print "test"
+            GossipType gossip -> print "test"
             Ping -> do
               sendAll sock (DBL.toStrict $ serialize Pong)
             AddNode -> do
