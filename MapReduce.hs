@@ -60,9 +60,6 @@ node port peer = do
             NewConnection id      -> print "test"
             GossipRequest cluster -> print "test"
             Ping                  -> writeChan tx Pong
-            -- AddNode -> do
-            --   void $ forkIO $ node (port + 1)
-            --   eventLoop (port + 1) chan
   let connAcceptor sock rx =
         forever $ do
           conn <- accept sock
@@ -80,12 +77,6 @@ node port peer = do
   _ <- forkIO $ eventLoop port rx
   -- connection forker
   _ <- forkIO $ connAcceptor sock rx
-  -- when (peer /= "") $ do
-  --   let (host, portStr) = break (== ':') peer
-  --   let peerPort = read (drop 1 portStr) :: PortNumber
-  --   sockToPeer <- socket AF_INET Stream defaultProtocol
-  --   connect sockToPeer (SockAddrInet peerPort 0)
-  --   writeChan chan (sockToPeer, Ping)
   print "node create complete"
 
 rxEvent :: Socket -> Chan (Chan Message, Message) -> Message -> IO ()
