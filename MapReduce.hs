@@ -12,6 +12,8 @@ import qualified Data.ByteString.Lazy      as DBL
 import           GHC.Generics              (Generic)
 import           Network.Socket
 import           Network.Socket.ByteString
+import           System.Environment
+import           System.Exit
 import           System.IO
 
 data Server = Server
@@ -74,10 +76,18 @@ connectionHandler (sock, _) chan msgNum = do
           Nothing -> print "Invalid message!"
         loop
 
---   sendAll sock (DB.concat $ DBL.toChunks $ encode sampleGossip)
---   print "done"
 main :: IO ()
 main = do
+--   args <- getArgs
+--   port <-
+--     case args of
+--       [portStr] ->
+--         case reads portStr :: [(Int, String)] of
+--           [(port, "")] -> return port
+--       _ -> do
+--         print "require port"
+--         exitFailure
+--   print port
   -- create, bind and listen on socket
   sock <- socket AF_INET Stream defaultProtocol
   bind sock (SockAddrInet 3000 0)
