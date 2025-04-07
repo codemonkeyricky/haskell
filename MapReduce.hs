@@ -45,6 +45,10 @@ merge (Cluster a) (Cluster b) =
       merged = nubBy (on (==) port) sorted -- keep first occurence
    in Cluster merged
 
+filterByPort :: Cluster -> Integer -> Cluster
+filterByPort (Cluster servers) to_remove =
+  Cluster $ filter (\server -> port server /= to_remove) servers
+
 serialize :: Message -> DBL.ByteString
 serialize = encode
 
@@ -54,7 +58,7 @@ deserialize = decode
 -- port / peer
 node :: Integer -> Cluster -> IO ()
 node my_port cluster = do
-  let eventLoop port rx =
+  let eventLoop port rx cluster =
         forever $ do
           (maybe_tx, msg) <- readChan rx
           case msg of
@@ -79,9 +83,10 @@ node my_port cluster = do
   bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
   -- Define cluster with just me
-  let cluster = Cluster {servers = [Server {port = my_port, version = 1}]}
+  let cluster' =
+        merge cluster Cluster {servers = [Server {port = my_port, version = 1}]}
   -- main event loop
-  _ <- forkIO $ eventLoop my_port rx
+  _ <- forkIO $ eventLoop my_port rx cluster'
   -- connection forker
   _ <- forkIO $ connAcceptor sock rx
   _ <- forkIO $ timerHeartbeat rx
