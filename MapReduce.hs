@@ -52,8 +52,8 @@ deserialize :: DBL.ByteString -> Maybe Message
 deserialize = decode
 
 -- port / peer
-node :: Integer -> String -> IO ()
-node my_port peer_port = do
+node :: Integer -> Cluster -> IO ()
+node my_port cluster = do
   let eventLoop port rx =
         forever $ do
           (maybe_tx, msg) <- readChan rx
@@ -117,7 +117,7 @@ rxPacket (sock, _) tx = do
 main :: IO ()
 main = do
   DBL.putStr (serialize (Ping))
-  node 3000 ""
-  node 3001 "localhost:3000"
+  node 3000 Cluster {servers = []}
+  -- node 3001 "localhost:3000"
   forever $ threadDelay maxBound
   print "hello"
