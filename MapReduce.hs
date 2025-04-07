@@ -20,7 +20,7 @@ import           System.Exit
 import           System.IO
 
 data Server = Server
-  { address :: String
+  { port    :: Integer
   , version :: Integer
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
@@ -42,7 +42,7 @@ merge :: Cluster -> Cluster -> Cluster
 merge (Cluster a) (Cluster b) =
   let c = a ++ b
       sorted = sortOn (Down . version) c -- sort by descending version
-      merged = nubBy (on (==) address) sorted -- keep first occurence
+      merged = nubBy (on (==) port) sorted -- keep first occurence
    in Cluster merged
 
 serialize :: Message -> DBL.ByteString
@@ -52,7 +52,7 @@ deserialize :: DBL.ByteString -> Maybe Message
 deserialize = decode
 
 -- port / peer
-node :: PortNumber -> String -> IO ()
+node :: Integer -> String -> IO ()
 node port peer = do
   let eventLoop port rx =
         forever $ do
@@ -76,12 +76,10 @@ node port peer = do
   -- create socket and channel
   rx <- newChan
   sock <- socket AF_INET Stream defaultProtocol
-  bind sock (SockAddrInet port 0)
+  bind sock (SockAddrInet (fromIntegral port) 0)
   listen sock 5
   -- Define cluster with just me
-  let cluster =
-        Cluster
-          {servers = [Server {address = "localhost" ++ show port, version = 1}]}
+  let cluster = Cluster {servers = [Server {port = port, version = 1}]}
   -- main event loop
   _ <- forkIO $ eventLoop port rx
   -- connection forker
