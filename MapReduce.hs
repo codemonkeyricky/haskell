@@ -53,7 +53,7 @@ deserialize = decode
 
 -- port / peer
 node :: Integer -> String -> IO ()
-node port peer = do
+node my_port peer = do
   let eventLoop port rx =
         forever $ do
           (maybe_tx, msg) <- readChan rx
@@ -76,12 +76,12 @@ node port peer = do
   -- create socket and channel
   rx <- newChan
   sock <- socket AF_INET Stream defaultProtocol
-  bind sock (SockAddrInet (fromIntegral port) 0)
+  bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
   -- Define cluster with just me
-  let cluster = Cluster {servers = [Server {port = port, version = 1}]}
+  let cluster = Cluster {servers = [Server {port = my_port, version = 1}]}
   -- main event loop
-  _ <- forkIO $ eventLoop port rx
+  _ <- forkIO $ eventLoop my_port rx
   -- connection forker
   _ <- forkIO $ connAcceptor sock rx
   _ <- forkIO $ timerHeartbeat rx
