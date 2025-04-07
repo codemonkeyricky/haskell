@@ -74,7 +74,12 @@ node my_port cluster = do
             GossipRequest cluster -> print "GossipRequest!"
             Heartbeat -> do
               let peers = filterByPort cluster port
-              -- TODO: if peers is not empty, exchange_gossip with the first peer from peers
+              print peers
+              case servers peers of
+                (Server {port = p}:_) ->
+                  void $ exchange_gossip rx (fromIntegral p) cluster
+                _ -> print "empty"
+                  -- exchange_gossip rx (fromIntegral peer) cluster
               print "heartbeat"
             Ping ->
               case maybe_tx of
