@@ -58,12 +58,20 @@ deserialize = decode
 -- port / peer
 node :: Integer -> Cluster -> IO ()
 node my_port cluster = do
+  let exchange_gossip rx peer cluster = do
+        -- create socket
+        sock <- socket AF_INET Stream defaultProtocol
+        connect sock (SockAddrInet peer 0)
+        -- send
+        sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
+        -- receive
+        forkIO (rxPacket sock rx)
   let eventLoop port rx cluster =
         forever $ do
           (maybe_tx, msg) <- readChan rx
           case msg of
             NewConnection id -> print "test"
-            GossipRequest cluster -> print "test"
+            GossipRequest cluster -> print "GossipRequest!"
             Heartbeat -> print "heartbeat"
             Ping ->
               case maybe_tx of
@@ -71,7 +79,7 @@ node my_port cluster = do
                 Nothing -> return ()
   let connAcceptor sock rx =
         forever $ do
-          conn <- accept sock
+          (conn, _) <- accept sock
           forkIO (rxPacket conn rx)
   let timerHeartbeat rx =
         forever $ do
@@ -105,8 +113,8 @@ rxEvent sock tx msg = do
   to_send <- readChan rx
   sendAll sock (DBL.toStrict $ serialize to_send)
 
-rxPacket :: (Socket, SockAddr) -> Chan (Maybe (Chan Message), Message) -> IO ()
-rxPacket (sock, _) tx = do
+rxPacket :: Socket -> Chan (Maybe (Chan Message), Message) -> IO ()
+rxPacket sock tx = do
   handle (\(SomeException _) -> return ())
     $ fix
     $ \loop -> do
