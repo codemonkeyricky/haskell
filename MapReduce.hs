@@ -32,6 +32,7 @@ data Message
   = NewConnection Int
   | GossipRequest Cluster
   | GossipReply Cluster
+  | Heartbeat
   | Ping
   | Pong
   | AddNode
@@ -59,6 +60,7 @@ node port peer = do
           case msg of
             NewConnection id -> print "test"
             GossipRequest cluster -> print "test"
+            Heartbeat -> print "heartbeat"
             Ping ->
               case maybe_tx of
                 Just tx -> writeChan tx Pong
@@ -67,6 +69,10 @@ node port peer = do
         forever $ do
           conn <- accept sock
           forkIO (rxPacket conn rx)
+  let timerHeartbeat rx =
+        forever $ do
+          threadDelay 1000000
+          writeChan rx (Nothing, Heartbeat)
   -- create socket and channel
   rx <- newChan
   sock <- socket AF_INET Stream defaultProtocol
@@ -80,6 +86,7 @@ node port peer = do
   _ <- forkIO $ eventLoop port rx
   -- connection forker
   _ <- forkIO $ connAcceptor sock rx
+  _ <- forkIO $ timerHeartbeat rx
   -- when (peer /= "") $ do
   --   let (host, portStr) = break (== ':') peer
   --   let peerPort = read (drop 1 portStr) :: PortNumber
