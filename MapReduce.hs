@@ -53,7 +53,7 @@ deserialize = decode
 
 -- port / peer
 node :: Integer -> String -> IO ()
-node my_port peer = do
+node my_port peer_port = do
   let eventLoop port rx =
         forever $ do
           (maybe_tx, msg) <- readChan rx
