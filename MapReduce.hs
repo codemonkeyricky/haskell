@@ -55,11 +55,14 @@ node :: PortNumber -> String -> IO ()
 node port peer = do
   let eventLoop port rx =
         forever $ do
-          (tx, msg) <- readChan rx
+          (maybe_tx, msg) <- readChan rx
           case msg of
-            NewConnection id      -> print "test"
+            NewConnection id -> print "test"
             GossipRequest cluster -> print "test"
-            Ping                  -> writeChan tx Pong
+            Ping ->
+              case maybe_tx of
+                Just tx -> writeChan tx Pong
+                Nothing -> return ()
   let connAcceptor sock rx =
         forever $ do
           conn <- accept sock
@@ -85,14 +88,14 @@ node port peer = do
   --   writeChan chan (sockToPeer, Ping)
   print "node create complete"
 
-rxEvent :: Socket -> Chan (Chan Message, Message) -> Message -> IO ()
+rxEvent :: Socket -> Chan (Maybe (Chan Message), Message) -> Message -> IO ()
 rxEvent sock tx msg = do
   rx <- newChan
-  writeChan tx (rx, msg)
+  writeChan tx (Just rx, msg)
   to_send <- readChan rx
   sendAll sock (DBL.toStrict $ serialize to_send)
 
-rxPacket :: (Socket, SockAddr) -> Chan (Chan Message, Message) -> IO ()
+rxPacket :: (Socket, SockAddr) -> Chan (Maybe (Chan Message), Message) -> IO ()
 rxPacket (sock, _) tx = do
   handle (\(SomeException _) -> return ())
     $ fix
