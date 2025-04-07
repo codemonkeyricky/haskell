@@ -71,20 +71,25 @@ node my_port cluster = do
           (maybe_tx, msg) <- readChan rx
           case msg of
             NewConnection id -> print "test"
-            GossipRequest cluster -> print "GossipRequest!"
+            GossipRequest cluster' -> do
+              let cluster'' = merge cluster cluster'
+              -- print cluster''
+              -- assert False $ return ()
+              eventLoop port rx cluster''
             Heartbeat -> do
+              print cluster
               let peers = filterByPort cluster port
-              print peers
+              -- print peers
               case servers peers of
                 (Server {port = p}:_) ->
                   void $ exchange_gossip rx (fromIntegral p) cluster
                 _ -> print "empty"
-                  -- exchange_gossip rx (fromIntegral peer) cluster
-              print "heartbeat"
             Ping ->
               case maybe_tx of
                 Just tx -> writeChan tx Pong
                 Nothing -> return ()
+                  -- exchange_gossip rx (fromIntegral peer) cluster
+              -- print "heartbeat"
   let connAcceptor sock rx =
         forever $ do
           (conn, _) <- accept sock
