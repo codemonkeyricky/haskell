@@ -98,17 +98,15 @@ node my_port cluster = do
         forever $ do
           threadDelay 1000000
           writeChan rx (Nothing, Heartbeat)
+  let cluster' =
+        merge cluster Cluster {servers = [Server {port = my_port, version = 1}]}
   -- create socket and channel
   rx <- newChan
   sock <- socket AF_INET Stream defaultProtocol
   bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
-  -- Define cluster with just me
-  let cluster' =
-        merge cluster Cluster {servers = [Server {port = my_port, version = 1}]}
-  -- main event loop
+  -- event loop, connection acceptor, timer heartbeat
   _ <- forkIO $ eventLoop my_port rx cluster'
-  -- connection forker
   _ <- forkIO $ connAcceptor sock rx
   _ <- forkIO $ timerHeartbeat rx
   print "node create complete"
