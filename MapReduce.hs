@@ -19,6 +19,20 @@ import           System.Environment
 import           System.Exit
 import           System.IO
 
+data PersistState = PersistState
+  { currentTerm :: Integer
+  , votedFor    :: Maybe String
+  , log         :: [String]
+  }
+
+data VolatileState = VolatileState
+  { commitIndex :: Integer
+  , lastApplied :: Integer
+  -- leader only
+  , nextIndex   :: [Integer]
+  , matchIndex :: [Integer]
+  }
+
 data Server = Server
   { port    :: Integer
   , version :: Integer
