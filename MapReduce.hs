@@ -10,7 +10,7 @@ import           Data.Aeson                (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString           as DB
 import qualified Data.ByteString.Lazy      as DBL
 import           Data.Function             (on)
-import           Data.List                 (nubBy, sortOn)
+import           Data.List
 import           Data.Ord                  (Down (..))
 import           GHC.Generics              (Generic)
 import           Network.Socket
@@ -80,6 +80,7 @@ data Message
   | Ping
   | Pong
   | AddNode
+  | RegisterWorker Integer
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 merge :: Cluster -> Cluster -> Cluster
@@ -110,7 +111,7 @@ node my_port cluster = do
         sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
         -- receive
         forkIO (rxPacket sock rx)
-  let eventLoop port rx cluster =
+  let eventLoop port rx cluster workers =
         forever $ do
           (maybe_tx, msg) <- readChan rx
           case msg of
@@ -119,7 +120,7 @@ node my_port cluster = do
               let cluster'' = merge cluster cluster'
               -- print cluster''
               -- assert False $ return ()
-              eventLoop port rx cluster''
+              eventLoop port rx cluster'' workers
             Heartbeat -> do
               print cluster
               let peers = filterByPort cluster port
@@ -128,6 +129,8 @@ node my_port cluster = do
                 (Server {port = p}:_) ->
                   void $ exchange_gossip rx (fromIntegral p) cluster
                 _ -> print "empty"
+            RegisterWorker worker -> do
+              eventLoop port rx cluster (nub $ sort $ worker : workers)
             Ping ->
               case maybe_tx of
                 Just tx -> writeChan tx Pong
@@ -150,7 +153,7 @@ node my_port cluster = do
   bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
   -- event loop, connection acceptor, timer heartbeat
-  _ <- forkIO $ eventLoop my_port rx cluster'
+  _ <- forkIO $ eventLoop my_port rx cluster' []
   _ <- forkIO $ connAcceptor sock rx
   _ <- forkIO $ timerHeartbeat rx
   print "node create complete"
