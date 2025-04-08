@@ -28,6 +28,32 @@ data Cluster = Cluster
   { servers :: [Server]
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
+data AppendEntriesReq = AppendEntriesReq
+  { term_ae      :: Integer
+  , leaderId     :: Integer
+  , prevLogIndex :: Integer
+  , prevLogTerm  :: Integer
+  , entries      :: [String]
+  , leaderCommit :: Integer
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
+
+data AppendEntriesReply = AppendEntriesReply
+  { term_ae' :: Integer
+  , success  :: Bool
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
+
+data RequestVoteReq = RequestVoteReq
+  { term_rv       :: Integer
+  , candidateId   :: Integer
+  , lasteLogIndex :: Integer
+  , lastLogTerm   :: Integer
+  }
+
+data RequestVoteReply = RequestVoteReply
+  { term_rv'    :: Integer
+  , voteGranted :: Bool
+  }
+
 data Message
   = NewConnection Int
   | GossipRequest Cluster
