@@ -30,7 +30,7 @@ data VolatileState = VolatileState
   , lastApplied :: Integer
   -- leader only
   , nextIndex   :: [Integer]
-  , matchIndex :: [Integer]
+  , matchIndex  :: [Integer]
   }
 
 data Server = Server
@@ -61,15 +61,19 @@ data RequestVoteReq = RequestVoteReq
   , candidateId   :: Integer
   , lasteLogIndex :: Integer
   , lastLogTerm   :: Integer
-  }
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data RequestVoteReply = RequestVoteReply
   { term_rv'    :: Integer
   , voteGranted :: Bool
-  }
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Message
   = NewConnection Int
+  | MAppendEntriesRequest AppendEntriesReq
+  | MAppendEntriesReply AppendEntriesReply
+  | MRequestVoteReq RequestVoteReq
+  | MRequestVoteReply RequestVoteReply
   | GossipRequest Cluster
   | GossipReply Cluster
   | Heartbeat
