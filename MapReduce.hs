@@ -11,6 +11,7 @@ import qualified Data.ByteString           as DB
 import qualified Data.ByteString.Lazy      as DBL
 import           Data.Function             (on)
 import           Data.List
+import           Data.Map
 import           Data.Ord                  (Down (..))
 import           GHC.Generics              (Generic)
 import           Network.Socket
@@ -120,7 +121,7 @@ merge (Cluster a) (Cluster b) =
 
 filterByPort :: Cluster -> Integer -> Cluster
 filterByPort (Cluster servers) to_remove =
-  Cluster $ filter (\server -> port server /= to_remove) servers
+  Cluster $ Data.List.filter (\server -> port server /= to_remove) servers
 
 serialize :: Message -> DBL.ByteString
 serialize = encode
@@ -134,12 +135,13 @@ node my_port cluster = do
   let exchange_gossip rx peer cluster = do
         -- create socket
         sock <- socket AF_INET Stream defaultProtocol
+        setSocketOption sock ReuseAddr 1
         connect sock (SockAddrInet peer 0)
         -- send
         sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
         -- receive
         forkIO (rxPacket sock rx)
-  let eventLoop port rx cluster workers =
+  let eventLoop port rx cluster workers db =
         forever $ do
           (maybe_tx, msg) <- readChan rx
           case msg of
@@ -148,7 +150,7 @@ node my_port cluster = do
               let cluster'' = merge cluster cluster'
               -- print cluster''
               -- assert False $ return ()
-              eventLoop port rx cluster'' workers
+              eventLoop port rx cluster'' workers db
             Heartbeat -> do
               print cluster
               let peers = filterByPort cluster port
@@ -158,11 +160,12 @@ node my_port cluster = do
                   void $ exchange_gossip rx (fromIntegral p) cluster
                 _ -> print "empty"
             RegisterWorker worker -> do
-              eventLoop port rx cluster (nub $ sort $ worker : workers)
+              eventLoop port rx cluster (nub $ sort $ worker : workers) db
             MRead read -> do
               case maybe_tx of
                 Just tx -> do
-                  let read' = (MRead' $ ReadOp' True $ Just "Dummy")
+                  let value = Data.Map.lookup (r_key read) db
+                  let read' = (MRead' $ ReadOp' True $ value)
                   writeChan tx read'
                 Nothing -> return ()
                     --  MRead' ReadOp' {r'_status = True, r'_value = Just "Dummy"}
@@ -184,9 +187,9 @@ node my_port cluster = do
   bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
   -- event loop, connection acceptor, timer heartbeat
-  _ <- forkIO $ eventLoop my_port rx cluster' []
+  _ <- forkIO $ eventLoop my_port rx cluster' [] Data.Map.empty
   _ <- forkIO $ rxConn sock rx
-  _ <- forkIO $ timerHeartbeat rx
+  -- _ <- forkIO $ timerHeartbeat rx
   print "node create complete"
 
 rxEvent :: Socket -> Chan (Maybe (Chan Message), Message) -> Message -> IO ()
@@ -212,8 +215,9 @@ rxPacket sock tx = do
 
 main :: IO ()
 main = do
-  DBL.putStr (serialize (Ping))
+  -- DBL.putStr (serialize (Ping))
+  DBL.putStr (serialize ((MRead $ ReadOp "test")))
   node 3000 Cluster {servers = []}
-  node 3001 Cluster {servers = [Server {port = 3000, version = 1}]}
+  -- node 3001 Cluster {servers = [Server {port = 3000, version = 1}]}
   forever $ threadDelay maxBound
   print "hello"
