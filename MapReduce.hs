@@ -227,8 +227,8 @@ rxPacket sock tx = do
 main :: IO ()
 main = do
   -- DBL.putStr (serialize (Ping))
-  DBL.putStr (serialize ((MRead $ ReadOp "test")))
-  DBL.putStr (serialize ((MWrite $ WriteOp "k" "v")))
+  DBL.putStrLn (serialize ((MRead $ ReadOp "test")))
+  DBL.putStrLn (serialize ((MWrite $ WriteOp "k" "v")))
   node 3000 Cluster {servers = []}
   -- node 3001 Cluster {servers = [Server {port = 3000, version = 1}]}
   forever $ threadDelay maxBound
