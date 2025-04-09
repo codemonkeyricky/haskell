@@ -10,6 +10,7 @@ import           Data.Aeson                (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString           as DB
 import qualified Data.ByteString.Lazy      as DBL
 import           Data.Function             (on)
+import           Data.Hashable
 import           Data.List
 import           Data.Map
 import           Data.Ord                  (Down (..))
@@ -229,6 +230,9 @@ main = do
   -- DBL.putStr (serialize (Ping))
   DBL.putStr (serialize ((MRead $ ReadOp "k")))
   DBL.putStr (serialize ((MWrite $ WriteOp "k" "v")))
+  let we = "whatever"
+  let h = hash we
+  print h
   node 3000 Cluster {servers = []}
   -- node 3001 Cluster {servers = [Server {port = 3000, version = 1}]}
   forever $ threadDelay maxBound
