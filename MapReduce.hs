@@ -75,23 +75,23 @@ data RequestVoteReply = RequestVoteReply
   , voteGranted :: Bool
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-data Read = Read
+data ReadOp = ReadOp
   { r_key :: String
-  }
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-data Read' = Read'
+data ReadOp' = ReadOp'
   { r'_status :: Bool
   , r'_value  :: Maybe String
-  }
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-data Write = Write
+data WriteOp = WriteOp
   { w_key   :: String
   , w_value :: String
-  }
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
-data Write' = Write'
+data WriteOp' = WriteOp'
   { w'_status :: Bool
-  }
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Message
   = NewConnection Int
@@ -101,7 +101,8 @@ data Message
   | MRequestVoteReply RequestVoteReply
   | GossipRequest Cluster
   | GossipReply Cluster
-  | MRead
+  | MRead ReadOp
+  | MRead' ReadOp'
   | MWrite
   | Heartbeat
   | Ping
@@ -158,10 +159,13 @@ node my_port cluster = do
                 _ -> print "empty"
             RegisterWorker worker -> do
               eventLoop port rx cluster (nub $ sort $ worker : workers)
-            Ping ->
+            MRead read -> do
               case maybe_tx of
-                Just tx -> writeChan tx Pong
+                Just tx -> do
+                  let read' = (MRead' $ ReadOp' True $ Just "Dummy")
+                  writeChan tx read'
                 Nothing -> return ()
+                    --  MRead' ReadOp' {r'_status = True, r'_value = Just "Dummy"}
                   -- exchange_gossip rx (fromIntegral peer) cluster
               -- print "heartbeat"
   let rxConn sock rx =
