@@ -104,7 +104,8 @@ data Message
   | GossipReply Cluster
   | MRead ReadOp
   | MRead' ReadOp'
-  | MWrite
+  | MWrite WriteOp
+  | MWrite' WriteOp'
   | Heartbeat
   | Ping
   | Pong
@@ -165,6 +166,9 @@ node my_port cluster = do
               case maybe_tx of
                 Just tx -> do
                   let db' = Data.Map.insert (w_key write) (w_value write) db
+                  let write' = (MWrite' $ WriteOp' True)
+                  writeChan tx write'
+                  eventLoop port rx cluster workers db'
                 Nothing -> return ()
             MRead read -> do
               case maybe_tx of
@@ -224,6 +228,7 @@ main :: IO ()
 main = do
   -- DBL.putStr (serialize (Ping))
   DBL.putStr (serialize ((MRead $ ReadOp "test")))
+  DBL.putStr (serialize ((MWrite $ WriteOp "k" "v")))
   node 3000 Cluster {servers = []}
   -- node 3001 Cluster {servers = [Server {port = 3000, version = 1}]}
   forever $ threadDelay maxBound
