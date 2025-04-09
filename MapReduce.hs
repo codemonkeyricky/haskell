@@ -33,8 +33,15 @@ data VolatileState = VolatileState
   , matchIndex  :: [Integer]
   }
 
+-- data Status
+--   = Joining
+--   | Online
+--   | Leaving
+--   | Offline
+--   deriving (Enum, Eq, Show, ToJSON, FromJSON)
 data Server = Server
   { port    :: Integer
+  -- , status  :: Status
   , version :: Integer
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
@@ -68,6 +75,24 @@ data RequestVoteReply = RequestVoteReply
   , voteGranted :: Bool
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
+data Read = Read
+  { r_key :: String
+  }
+
+data Read' = Read'
+  { r'_status :: Bool
+  , r'_value  :: Maybe String
+  }
+
+data Write = Write
+  { w_key   :: String
+  , w_value :: String
+  }
+
+data Write' = Write'
+  { w'_status :: Bool
+  }
+
 data Message
   = NewConnection Int
   | MAppendEntriesRequest AppendEntriesReq
@@ -76,6 +101,8 @@ data Message
   | MRequestVoteReply RequestVoteReply
   | GossipRequest Cluster
   | GossipReply Cluster
+  | MRead
+  | MWrite
   | Heartbeat
   | Ping
   | Pong
@@ -137,7 +164,7 @@ node my_port cluster = do
                 Nothing -> return ()
                   -- exchange_gossip rx (fromIntegral peer) cluster
               -- print "heartbeat"
-  let connAcceptor sock rx =
+  let rxConn sock rx =
         forever $ do
           (conn, _) <- accept sock
           forkIO (rxPacket conn rx)
@@ -154,7 +181,7 @@ node my_port cluster = do
   listen sock 5
   -- event loop, connection acceptor, timer heartbeat
   _ <- forkIO $ eventLoop my_port rx cluster' []
-  _ <- forkIO $ connAcceptor sock rx
+  _ <- forkIO $ rxConn sock rx
   _ <- forkIO $ timerHeartbeat rx
   print "node create complete"
 
