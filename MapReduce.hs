@@ -161,6 +161,11 @@ node my_port cluster = do
                 _ -> print "empty"
             RegisterWorker worker -> do
               eventLoop port rx cluster (nub $ sort $ worker : workers) db
+            MWrite write -> do
+              case maybe_tx of
+                Just tx -> do
+                  let db' = Data.Map.insert (w_key write) (w_value write) db
+                Nothing -> return ()
             MRead read -> do
               case maybe_tx of
                 Just tx -> do
@@ -168,6 +173,8 @@ node my_port cluster = do
                   let read' = (MRead' $ ReadOp' True $ value)
                   writeChan tx read'
                 Nothing -> return ()
+                  -- let read' = (MRead' $ ReadOp' True $ value)
+                  -- writeChan tx read'
                     --  MRead' ReadOp' {r'_status = True, r'_value = Just "Dummy"}
                   -- exchange_gossip rx (fromIntegral peer) cluster
               -- print "heartbeat"
