@@ -159,6 +159,11 @@ node my_port cluster = do
             NewConnection id -> print "test"
             GossipRequest cluster' -> do
               let cluster'' = merge cluster cluster'
+              case maybe_tx of
+                Just tx -> do
+                  let gossip' = (GossipReply $ Cluster cluster'')
+                  writeChan tx gossip'
+                Nothing -> return ()
               eventLoop listeningPort rx cluster'' workers db
             GossipReply cluster' -> do
               let cluster'' = merge cluster cluster'
