@@ -45,7 +45,8 @@ data Status
 
 data Server = Server
   { port    :: Integer
-  -- , status  :: Status
+  , status  :: Status
+  , tokens  :: [Integer]
   , version :: Integer
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
@@ -113,7 +114,6 @@ data Message
   | Ping
   | Pong
   | AddNode
-  | RegisterWorker Integer
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 merge :: Cluster -> Cluster -> Cluster
@@ -133,6 +133,11 @@ serialize = encode
 deserialize :: DBL.ByteString -> Maybe Message
 deserialize = decode
 
+getRing :: Cluster -> Data.Map.Map Integer Integer
+getRing (Cluster a) =
+  Data.Map.fromList
+    $ concatMap (\server -> [(token, port server) | token <- tokens server]) a
+
 -- port / peer
 node :: Integer -> Cluster -> IO ()
 node my_port cluster = do
@@ -147,13 +152,12 @@ node my_port cluster = do
         forkIO (rxPacket sock rx)
   let eventLoop port rx cluster workers db =
         forever $ do
+          let ring = getRing cluster
           (maybe_tx, msg) <- readChan rx
           case msg of
             NewConnection id -> print "test"
             GossipRequest cluster' -> do
               let cluster'' = merge cluster cluster'
-              -- print cluster''
-              -- assert False $ return ()
               eventLoop port rx cluster'' workers db
             Heartbeat -> do
               print cluster
@@ -163,8 +167,6 @@ node my_port cluster = do
                 (Server {port = p}:_) ->
                   void $ exchange_gossip rx (fromIntegral p) cluster
                 _ -> print "empty"
-            RegisterWorker worker -> do
-              eventLoop port rx cluster (nub $ sort $ worker : workers) db
             MWrite write -> do
               case maybe_tx of
                 Just tx -> do
