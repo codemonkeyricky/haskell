@@ -21,6 +21,7 @@ import           Network.Socket.ByteString
 import           System.Environment
 import           System.Exit
 import           System.IO
+import           System.Random             (randomRIO)
 
 data PersistState = PersistState
   { currentTerm :: Integer
@@ -150,7 +151,7 @@ node my_port cluster = do
         sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
         -- receive
         forkIO (rxPacket sock rx)
-  let eventLoop port rx cluster workers db =
+  let eventLoop listeningPort rx cluster workers db =
         forever $ do
           let ring = getRing cluster
           (maybe_tx, msg) <- readChan rx
@@ -158,22 +159,27 @@ node my_port cluster = do
             NewConnection id -> print "test"
             GossipRequest cluster' -> do
               let cluster'' = merge cluster cluster'
-              eventLoop port rx cluster'' workers db
+              eventLoop listeningPort rx cluster'' workers db
+            GossipReply cluster' -> do
+              let cluster'' = merge cluster cluster'
+              eventLoop listeningPort rx cluster'' workers db
             Heartbeat -> do
-              print cluster
-              let peers = filterByPort cluster port
-              -- print peers
-              case servers peers of
-                (Server {port = p}:_) ->
+              print "heartbeat"
+              let peers = filterByPort cluster listeningPort
+              let list = servers peers
+              case list of
+                [] -> print "empty"
+                ll -> do
+                  k <- randomRIO (0, length ll - 1)
+                  let p = port $ ll !! k
                   void $ exchange_gossip rx (fromIntegral p) cluster
-                _ -> print "empty"
             MWrite write -> do
               case maybe_tx of
                 Just tx -> do
                   let db' = Data.Map.insert (w_key write) (w_value write) db
                   let write' = (MWrite' $ WriteOp' True)
                   writeChan tx write'
-                  eventLoop port rx cluster workers db'
+                  eventLoop listeningPort rx cluster workers db'
                 Nothing -> return ()
             MRead read -> do
               case maybe_tx of
@@ -182,11 +188,6 @@ node my_port cluster = do
                   let read' = (MRead' $ ReadOp' True $ value)
                   writeChan tx read'
                 Nothing -> return ()
-                  -- let read' = (MRead' $ ReadOp' True $ value)
-                  -- writeChan tx read'
-                    --  MRead' ReadOp' {r'_status = True, r'_value = Just "Dummy"}
-                  -- exchange_gossip rx (fromIntegral peer) cluster
-              -- print "heartbeat"
   let rxConn sock rx =
         forever $ do
           (conn, _) <- accept sock
@@ -196,7 +197,18 @@ node my_port cluster = do
           threadDelay 1000000
           writeChan rx (Nothing, Heartbeat)
   let cluster' =
-        merge cluster Cluster {servers = [Server {port = my_port, version = 1}]}
+        merge
+          cluster
+          Cluster
+            { servers =
+                [ Server
+                    { port = my_port
+                    , status = Online
+                    , tokens = [1, 2]
+                    , version = 1
+                    }
+                ]
+            }
   -- create socket and channel
   rx <- newChan
   sock <- socket AF_INET Stream defaultProtocol
@@ -205,7 +217,7 @@ node my_port cluster = do
   -- event loop, connection acceptor, timer heartbeat
   _ <- forkIO $ eventLoop my_port rx cluster' [] Data.Map.empty
   _ <- forkIO $ rxConn sock rx
-  -- _ <- forkIO $ timerHeartbeat rx
+  _ <- forkIO $ timerHeartbeat rx
   print "node create complete"
 
 rxEvent :: Socket -> Chan (Maybe (Chan Message), Message) -> Message -> IO ()
@@ -238,6 +250,11 @@ main = do
   let h = hash we
   print h
   node 3000 Cluster {servers = []}
-  -- node 3001 Cluster {servers = [Server {port = 3000, version = 1}]}
+  node
+    3001
+    Cluster
+      { servers =
+          [Server {port = 3000, status = Online, tokens = [], version = 0}]
+      }
   forever $ threadDelay maxBound
   print "hello"
