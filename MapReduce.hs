@@ -22,6 +22,7 @@ import           System.Environment
 import           System.Exit
 import           System.IO
 import           System.Random             (randomRIO)
+import           Text.Printf
 
 data PersistState = PersistState
   { currentTerm :: Integer
@@ -161,12 +162,14 @@ node my_port cluster = do
               let cluster'' = merge cluster cluster'
               case maybe_tx of
                 Just tx -> do
-                  let gossip' = (GossipReply $ Cluster cluster'')
+                  let gossip' = (GossipReply cluster'')
                   writeChan tx gossip'
                 Nothing -> return ()
               eventLoop listeningPort rx cluster'' workers db
             GossipReply cluster' -> do
               let cluster'' = merge cluster cluster'
+              printf "%d:" listeningPort
+              print cluster''
               eventLoop listeningPort rx cluster'' workers db
             Heartbeat -> do
               print "heartbeat"
