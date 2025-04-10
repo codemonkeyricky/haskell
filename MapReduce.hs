@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Main where
 
@@ -35,12 +36,13 @@ data VolatileState = VolatileState
   , matchIndex  :: [Integer]
   }
 
--- data Status
---   = Joining
---   | Online
---   | Leaving
---   | Offline
---   deriving (Enum, Eq, Show, ToJSON, FromJSON)
+data Status
+  = Joining
+  | Online
+  | Leaving
+  | Offline
+  deriving (Generic, Enum, Eq, Show, ToJSON, FromJSON)
+
 data Server = Server
   { port    :: Integer
   -- , status  :: Status
