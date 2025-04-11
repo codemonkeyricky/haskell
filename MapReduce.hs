@@ -104,7 +104,8 @@ data Message
   = GossipRequest Cluster
   | GossipReply Cluster
   | Heartbeat
-  | DispatchJob Integer
+  | SubmitJob Integer
+  | CompletedJob Bool
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 merge :: Cluster -> Cluster -> Cluster
@@ -150,14 +151,25 @@ node my_port cluster = do
             sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
             forkIO (rxPacket sock rx)
             return True
+  let jobProcessor q = do
+        forever $ do
+          (sender, evtq, work) <- readChan q
+          print "x"
   let eventLoop listeningPort rx cluster workers db q =
         forever $ do
           let ring = getRing cluster
           (maybe_tx, msg) <- readChan rx
           case msg of
-            DispatchJob k -> do
-              let q' = q ++ [k]
-              print "x"
+            SubmitJob k -> do
+              case maybe_tx of
+                Just tx -> do
+                  writeChan q (tx, rx, k)
+                Nothing -> return ()
+            -- CompletedJob msg -> do
+            --   case maybe_tx of
+            --     Just tx -> do
+            --       forkIO $ txEvent tx msg
+            --     Nothing -> return ()
             GossipRequest cluster' -> do
               let cluster'' = merge cluster cluster'
               case maybe_tx of
@@ -211,8 +223,10 @@ node my_port cluster = do
   sock <- socket AF_INET Stream defaultProtocol
   bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
+  q <- newChan
   -- event loop, connection acceptor, timer heartbeat
-  _ <- forkIO $ eventLoop my_port rx cluster' [] Data.Map.empty []
+  _ <- forkIO $ eventLoop my_port rx cluster' [] Data.Map.empty q
+  _ <- forkIO $ jobProcessor q
   _ <- forkIO $ rxConn sock rx
   _ <- forkIO $ timerHeartbeat rx
   print "node create complete"
@@ -223,6 +237,11 @@ rxEvent sock tx msg = do
   writeChan tx (Just rx, msg)
   to_send <- readChan rx
   sendAll sock (DBL.toStrict $ serialize to_send)
+  close sock
+
+txEvent :: Socket -> Message -> IO ()
+txEvent sock msg = do
+  sendAll sock (DBL.toStrict $ serialize msg)
   close sock
 
 rxPacket :: Socket -> Chan (Maybe (Chan Message), Message) -> IO ()
