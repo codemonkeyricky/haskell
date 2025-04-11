@@ -104,6 +104,7 @@ data Message
   = GossipRequest Cluster
   | GossipReply Cluster
   | Heartbeat
+  | DispatchJob Integer
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 merge :: Cluster -> Cluster -> Cluster
@@ -149,11 +150,14 @@ node my_port cluster = do
             sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
             forkIO (rxPacket sock rx)
             return True
-  let eventLoop listeningPort rx cluster workers db =
+  let eventLoop listeningPort rx cluster workers db q =
         forever $ do
           let ring = getRing cluster
           (maybe_tx, msg) <- readChan rx
           case msg of
+            DispatchJob k -> do
+              let q' = q ++ [k]
+              print "x"
             GossipRequest cluster' -> do
               let cluster'' = merge cluster cluster'
               case maybe_tx of
@@ -161,12 +165,12 @@ node my_port cluster = do
                   let gossip' = (GossipReply cluster'')
                   writeChan tx gossip'
                 Nothing -> return ()
-              eventLoop listeningPort rx cluster'' workers db
+              eventLoop listeningPort rx cluster'' workers db q
             GossipReply cluster' -> do
               let cluster'' = merge cluster cluster'
               printf "%d:" listeningPort
               print cluster''
-              eventLoop listeningPort rx cluster'' workers db
+              eventLoop listeningPort rx cluster'' workers db q
             Heartbeat -> do
               print "heartbeat"
               let peers = excludePort cluster listeningPort
@@ -180,7 +184,7 @@ node my_port cluster = do
                   when (not success) $ do
                     -- remove node failed to connect
                     let cluster' = excludePort cluster p
-                    eventLoop listeningPort rx cluster' workers db
+                    eventLoop listeningPort rx cluster' workers db q
   let rxConn sock rx =
         forever $ do
           (conn, _) <- accept sock
@@ -208,7 +212,7 @@ node my_port cluster = do
   bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
   -- event loop, connection acceptor, timer heartbeat
-  _ <- forkIO $ eventLoop my_port rx cluster' [] Data.Map.empty
+  _ <- forkIO $ eventLoop my_port rx cluster' [] Data.Map.empty []
   _ <- forkIO $ rxConn sock rx
   _ <- forkIO $ timerHeartbeat rx
   print "node create complete"
