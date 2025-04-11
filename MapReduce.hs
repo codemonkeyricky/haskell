@@ -5,7 +5,7 @@ module Main where
 
 import           Control.Concurrent
 import           Control.Exception
-import           Control.Monad             (forever, void, when)
+import           Control.Monad             (forM_, forever, void, when)
 import           Control.Monad.Fix         (fix)
 import           Data.Aeson                (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString           as DB
@@ -123,7 +123,8 @@ merge (Cluster a) (Cluster b) =
   let c = a ++ b
       sorted = sortOn (Down . version) c -- sort by descending version
       merged = nubBy (on (==) port) sorted -- keep first occurence
-   in Cluster merged
+      sorted' = sortOn port merged
+   in Cluster sorted'
 
 excludePort :: Cluster -> Integer -> Cluster
 excludePort (Cluster servers) to_remove =
@@ -147,6 +148,7 @@ node my_port cluster = do
         -- create socket
         sock <- socket AF_INET Stream defaultProtocol
         setSocketOption sock ReuseAddr 1
+        setSocketOption sock ReusePort 1
         -- connect with exception handling
         connectResult <-
           try $ connect sock (SockAddrInet peer 0) :: IO (Either IOException ())
@@ -268,12 +270,17 @@ main = do
   let we = "whatever"
   let h = hash we
   print h
-  -- node 3000 Cluster {servers = []}
-  node
-    3001
-    Cluster
-      { servers =
-          [Server {port = 3000, status = Online, tokens = [], version = 0}]
-      }
+  -- seed
+  node 3000 Cluster {servers = []}
+  forM_ [1 .. 5] $ \i -> do
+    forkIO
+      $ node
+          (3000 + i)
+          Cluster
+            { servers =
+                [ Server
+                    {port = 3000, status = Online, tokens = [], version = 0}
+                ]
+            }
   forever $ threadDelay maxBound
   print "hello"
