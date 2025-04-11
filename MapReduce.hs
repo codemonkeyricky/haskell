@@ -157,7 +157,7 @@ node my_port cluster = do
           print "job started..."
           threadDelay 2000000
           print "job completed!!!!!"
-          writeChan rx (CompletedJob True)
+          writeChan rx $ Just (CompletedJob True)
   let eventLoop listeningPort rx cluster workers db q =
         forever $ do
           let ring = getRing cluster
@@ -173,13 +173,18 @@ node my_port cluster = do
               case maybe_tx of
                 Just tx -> do
                   let gossip' = (GossipReply cluster'')
-                  writeChan tx gossip'
+                  writeChan tx $ Just gossip'
                 Nothing -> return ()
               eventLoop listeningPort rx cluster'' workers db q
             GossipReply cluster' -> do
               let cluster'' = merge cluster cluster'
               printf "%d:" listeningPort
               print cluster''
+              case maybe_tx of
+                Just tx -> do
+                  -- writing nothing closes the socket
+                  writeChan tx Nothing 
+                Nothing -> return ()
               eventLoop listeningPort rx cluster'' workers db q
             Heartbeat -> do
               print "heartbeat"
@@ -206,7 +211,7 @@ node my_port cluster = do
           forkIO (rxPacket conn rx)
   let timerHeartbeat rx =
         forever $ do
-          threadDelay 1000000
+          threadDelay 100000
           writeChan rx (Nothing, Heartbeat)
   let cluster' =
         merge
@@ -234,15 +239,18 @@ node my_port cluster = do
   _ <- forkIO $ timerHeartbeat rx
   print "node create complete"
 
-rxEvent :: Socket -> Chan (Maybe (Chan Message), Message) -> Message -> IO ()
+rxEvent ::
+     Socket -> Chan (Maybe (Chan (Maybe Message)), Message) -> Message -> IO ()
 rxEvent sock tx msg = do
   rx <- newChan
   writeChan tx (Just rx, msg)
-  to_send <- readChan rx
-  sendAll sock (DBL.toStrict $ serialize to_send)
-  close sock
+  maybe_send <- readChan rx
+  case maybe_send of
+    Just send -> sendAll sock (DBL.toStrict $ serialize send)
+    Nothing   -> close sock
+  return ()
 
-rxPacket :: Socket -> Chan (Maybe (Chan Message), Message) -> IO ()
+rxPacket :: Socket -> Chan (Maybe (Chan (Maybe Message)), Message) -> IO ()
 rxPacket sock tx = do
   handle (\(SomeException _) -> return ())
     $ fix
@@ -265,15 +273,15 @@ main = do
   -- seed
   DBL.putStr (serialize (SubmitJob 0))
   node 3000 Cluster {servers = []}
-  -- forM_ [1 .. 50] $ \i -> do
-  --   forkIO
-  --     $ node
-  --         (3000 + i)
-  --         Cluster
-  --           { servers =
-  --               [ Server
-  --                   {port = 3000, status = Online, tokens = [], version = 0}
-  --               ]
-  --           }
+  forM_ [1 .. 50] $ \i -> do
+    forkIO
+      $ node
+          (3000 + i)
+          Cluster
+            { servers =
+                [ Server
+                    {port = 3000, status = Online, tokens = [], version = 0}
+                ]
+            }
   forever $ threadDelay maxBound
   print "hello"
