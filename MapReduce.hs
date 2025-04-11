@@ -154,12 +154,11 @@ node my_port cluster = do
           Left err -> do
             putStrLn $ "Failed to connect to peer: " ++ show err
             close sock
-            return ()
+            return False
           Right _ -> do
-                -- send
             sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
-                -- receive
-            void $ forkIO (rxPacket sock rx)
+            forkIO (rxPacket sock rx)
+            return True
   let eventLoop listeningPort rx cluster workers db =
         forever $ do
           let ring = getRing cluster
@@ -188,7 +187,11 @@ node my_port cluster = do
                 ll -> do
                   k <- randomRIO (0, length ll - 1)
                   let p = port $ ll !! k
-                  void $ exchange_gossip rx (fromIntegral p) cluster
+                  success <- exchange_gossip rx (fromIntegral p) cluster
+                  when (not success) $ do
+                    -- remove node failed to connect
+                    let cluster' = filterByPort cluster p
+                    eventLoop listeningPort rx cluster' workers db
             MWrite write -> do
               case maybe_tx of
                 Just tx -> do
