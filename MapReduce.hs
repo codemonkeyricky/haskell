@@ -125,8 +125,8 @@ merge (Cluster a) (Cluster b) =
       merged = nubBy (on (==) port) sorted -- keep first occurence
    in Cluster merged
 
-filterByPort :: Cluster -> Integer -> Cluster
-filterByPort (Cluster servers) to_remove =
+excludePort :: Cluster -> Integer -> Cluster
+excludePort (Cluster servers) to_remove =
   Cluster $ Data.List.filter (\server -> port server /= to_remove) servers
 
 serialize :: Message -> DBL.ByteString
@@ -180,7 +180,7 @@ node my_port cluster = do
               eventLoop listeningPort rx cluster'' workers db
             Heartbeat -> do
               print "heartbeat"
-              let peers = filterByPort cluster listeningPort
+              let peers = excludePort cluster listeningPort
               let list = servers peers
               case list of
                 [] -> print "empty"
@@ -190,7 +190,7 @@ node my_port cluster = do
                   success <- exchange_gossip rx (fromIntegral p) cluster
                   when (not success) $ do
                     -- remove node failed to connect
-                    let cluster' = filterByPort cluster p
+                    let cluster' = excludePort cluster p
                     eventLoop listeningPort rx cluster' workers db
             MWrite write -> do
               case maybe_tx of
