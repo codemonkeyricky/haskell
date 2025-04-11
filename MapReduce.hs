@@ -147,11 +147,19 @@ node my_port cluster = do
         -- create socket
         sock <- socket AF_INET Stream defaultProtocol
         setSocketOption sock ReuseAddr 1
-        connect sock (SockAddrInet peer 0)
-        -- send
-        sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
-        -- receive
-        forkIO (rxPacket sock rx)
+        -- connect with exception handling
+        connectResult <-
+          try $ connect sock (SockAddrInet peer 0) :: IO (Either IOException ())
+        case connectResult of
+          Left err -> do
+            putStrLn $ "Failed to connect to peer: " ++ show err
+            close sock
+            return ()
+          Right _ -> do
+                -- send
+            sendAll sock (DBL.toStrict $ serialize (GossipRequest cluster))
+                -- receive
+            void $ forkIO (rxPacket sock rx)
   let eventLoop listeningPort rx cluster workers db =
         forever $ do
           let ring = getRing cluster
@@ -257,7 +265,7 @@ main = do
   let we = "whatever"
   let h = hash we
   print h
-  node 3000 Cluster {servers = []}
+  -- node 3000 Cluster {servers = []}
   node
     3001
     Cluster
