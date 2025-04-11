@@ -101,21 +101,9 @@ data WriteOp' = WriteOp'
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data Message
-  = NewConnection Int
-  | MAppendEntriesRequest AppendEntriesReq
-  | MAppendEntriesReply AppendEntriesReply
-  | MRequestVoteReq RequestVoteReq
-  | MRequestVoteReply RequestVoteReply
-  | GossipRequest Cluster
+  = GossipRequest Cluster
   | GossipReply Cluster
-  | MRead ReadOp
-  | MRead' ReadOp'
-  | MWrite WriteOp
-  | MWrite' WriteOp'
   | Heartbeat
-  | Ping
-  | Pong
-  | AddNode
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 merge :: Cluster -> Cluster -> Cluster
@@ -166,7 +154,6 @@ node my_port cluster = do
           let ring = getRing cluster
           (maybe_tx, msg) <- readChan rx
           case msg of
-            NewConnection id -> print "test"
             GossipRequest cluster' -> do
               let cluster'' = merge cluster cluster'
               case maybe_tx of
@@ -194,21 +181,6 @@ node my_port cluster = do
                     -- remove node failed to connect
                     let cluster' = excludePort cluster p
                     eventLoop listeningPort rx cluster' workers db
-            MWrite write -> do
-              case maybe_tx of
-                Just tx -> do
-                  let db' = Data.Map.insert (w_key write) (w_value write) db
-                  let write' = (MWrite' $ WriteOp' True)
-                  writeChan tx write'
-                  eventLoop listeningPort rx cluster workers db'
-                Nothing -> return ()
-            MRead read -> do
-              case maybe_tx of
-                Just tx -> do
-                  let value = Data.Map.lookup (r_key read) db
-                  let read' = (MRead' $ ReadOp' True $ value)
-                  writeChan tx read'
-                Nothing -> return ()
   let rxConn sock rx =
         forever $ do
           (conn, _) <- accept sock
@@ -266,9 +238,6 @@ rxPacket sock tx = do
 
 main :: IO ()
 main = do
-  -- DBL.putStr (serialize (Ping))
-  DBL.putStr (serialize ((MRead $ ReadOp "k")))
-  DBL.putStr (serialize ((MWrite $ WriteOp "k" "v")))
   let we = "whatever"
   let h = hash we
   print h
