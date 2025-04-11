@@ -215,7 +215,7 @@ node my_port cluster = do
           forkIO (rxPacket conn rx)
   let timerHeartbeat rx =
         forever $ do
-          threadDelay 1000000
+          threadDelay 100000
           writeChan rx (Nothing, Heartbeat)
   let cluster' =
         merge
@@ -247,6 +247,7 @@ rxEvent sock tx msg = do
   writeChan tx (Just rx, msg)
   to_send <- readChan rx
   sendAll sock (DBL.toStrict $ serialize to_send)
+  close sock
 
 rxPacket :: Socket -> Chan (Maybe (Chan Message), Message) -> IO ()
 rxPacket sock tx = do
@@ -261,6 +262,7 @@ rxPacket sock tx = do
               Just evt -> void $ forkIO (rxEvent sock tx evt)
               Nothing  -> print "Invalid message!"
             loop
+        close sock
 
 main :: IO ()
 main = do
@@ -272,7 +274,7 @@ main = do
   print h
   -- seed
   node 3000 Cluster {servers = []}
-  forM_ [1 .. 5] $ \i -> do
+  forM_ [1 .. 50] $ \i -> do
     forkIO
       $ node
           (3000 + i)
