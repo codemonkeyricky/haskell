@@ -165,11 +165,12 @@ node my_port cluster = do
                 Just tx -> do
                   writeChan q (tx, rx, k)
                 Nothing -> return ()
-            -- CompletedJob msg -> do
-            --   case maybe_tx of
-            --     Just tx -> do
-            --       forkIO $ txEvent tx msg
-            --     Nothing -> return ()
+            CompletedJob msg -> do
+              case maybe_tx of
+                Just tx -> do
+                  print "x"
+                  -- forkIO $ txEvent tx msg
+                Nothing -> return ()
             GossipRequest cluster' -> do
               let cluster'' = merge cluster cluster'
               case maybe_tx of
