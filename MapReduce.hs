@@ -314,8 +314,13 @@ main = do
   --                   {port = 3000, status = Online, tokens = [], version = 0}
   --               ]
             -- }
-  forkIO $ dispatchJob 3000
-  forkIO $ dispatchJob 3000
-  forkIO $ dispatchJob 3000
-  forever $ threadDelay maxBound
-  print "hello"
+  -- Create an MVar to track completion
+  completionSignal <- newEmptyMVar
+  -- Launch dispatchJob threads and notify on completion
+  let jobCount = 3 -- Number of dispatchJob threads
+  forM_ [1 .. jobCount] $ \_ -> do
+    forkIO $ do
+      dispatchJob 3000
+      putMVar completionSignal () -- Signal completion
+  -- Wait for all jobs to finish
+  forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
