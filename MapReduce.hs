@@ -167,7 +167,7 @@ node my_port cluster = do
           (rx, work) <- readChan q
           -- print "job started..."
           -- _ <- return $ busyWork 1000000000000
-          let x = fib 30
+          let x = fib 33
           print x
           writeChan rx $ Just (CompletedJob True)
   let eventLoop listeningPort rx cluster workers db q =
