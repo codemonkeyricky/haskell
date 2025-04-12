@@ -137,6 +137,13 @@ randomIndices :: Integer -> Int -> [Integer] -- Takes a seed as input
 randomIndices seed n =
   Data.List.take n $ nub $ randomRs (0, 65525) (mkStdGen (fromInteger seed))
 
+fib :: Integer -> Integer
+fib 0 = 0
+fib 1 = 1
+fib n = do
+    -- print "x"
+  fib (n - 1) + fib (n - 2) -- Intentionally inefficient recursive version
+
 -- port / peer
 node :: Integer -> Cluster -> IO ()
 node my_port cluster = do
@@ -159,8 +166,9 @@ node my_port cluster = do
         forever $ do
           (rx, work) <- readChan q
           -- print "job started..."
-          threadDelay 2000000
-          -- print "job completed!!!!!"
+          -- _ <- return $ busyWork 1000000000000
+          let x = fib 30
+          print x
           writeChan rx $ Just (CompletedJob True)
   let eventLoop listeningPort rx cluster workers db q =
         forever $ do
