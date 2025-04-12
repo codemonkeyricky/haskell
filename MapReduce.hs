@@ -344,15 +344,23 @@ main = do
   forM_ [1 .. 10] $ \i -> do
     forkIO $ node (3000 + i) seed
   -- sleep for 500ms to allow gossip
-  -- threadDelay 500000
-  -- ring <- getRing $ getCluster
-  -- Create an MVar to track completion
-  completionSignal <- newEmptyMVar
-  -- Launch dispatchJob threads and notify on completion
-  let jobCount = 4 -- Number of dispatchJob threads
-  forM_ [1 .. jobCount] $ \i -> do
-    forkIO $ do
-      singleExchange (3000 + i) $ SubmitJob 10
-      putMVar completionSignal () -- Signal completion
-  -- Wait for all jobs to finish
-  forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
+  threadDelay 500000
+  resp <- singleExchange 3000 $ GossipRequest seed
+  case resp of
+    Nothing -> print "x"
+    Just msg ->
+      case msg of
+        GossipReply cluster -> do
+          print $ getRing cluster
+        -- ring <- getRing $ getCluster
+        -- Create an MVar to track completion
+          completionSignal <- newEmptyMVar
+        -- Launch dispatchJob threads and notify on completion
+          let jobCount = 4 -- Number of dispatchJob threads
+          forM_ [1 .. jobCount] $ \i -> do
+            forkIO $ do
+              singleExchange (3000 + i) $ SubmitJob 10
+              putMVar completionSignal () -- Signal completion
+        -- Wait for all jobs to finish
+          forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
+        _ -> print "nothing"
