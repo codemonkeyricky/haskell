@@ -312,23 +312,23 @@ main = do
   -- seed
   DBL.putStr (serialize (SubmitJob 0))
   node 3000 Cluster {servers = []}
-  -- forM_ [1 .. 1] $ \i -> do
-  --   forkIO
-  --     $ node
-  --         (3000 + i)
-  --         Cluster
-  --           { servers =
-  --               [ Server
-  --                   {port = 3000, status = Online, tokens = [], version = 0}
-  --               ]
-            -- }
+  forM_ [1 .. 10] $ \i -> do
+    forkIO
+      $ node
+          (3000 + i)
+          Cluster
+            { servers =
+                [ Server
+                    {port = 3000, status = Online, tokens = [], version = 0}
+                ]
+            }
   -- Create an MVar to track completion
   completionSignal <- newEmptyMVar
   -- Launch dispatchJob threads and notify on completion
-  let jobCount = 3 -- Number of dispatchJob threads
-  forM_ [1 .. jobCount] $ \_ -> do
+  let jobCount = 4 -- Number of dispatchJob threads
+  forM_ [1 .. jobCount] $ \i -> do
     forkIO $ do
-      dispatchJob 3000
+      dispatchJob (3000 + i)
       putMVar completionSignal () -- Signal completion
   -- Wait for all jobs to finish
   forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
