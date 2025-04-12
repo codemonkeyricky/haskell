@@ -326,8 +326,12 @@ singleExchange port msg = do
             Just evt -> return $ Just evt
             Nothing  -> return Nothing
 
--- getCluster :: Int -> Cluster
--- getCluster :: (Int port)
+findServer :: Integer -> Map Integer Integer -> Integer
+findServer hash ring =
+  case Data.Map.lookupGE hash ring of
+    Just (_, port) -> port
+    Nothing        -> snd (Data.Map.findMin ring)
+
 main :: IO ()
 main = do
   let we = "whatever"
@@ -351,16 +355,15 @@ main = do
     Just msg ->
       case msg of
         GossipReply cluster -> do
-          print $ getRing cluster
-        -- ring <- getRing $ getCluster
-        -- Create an MVar to track completion
+          let ring = getRing cluster
           completionSignal <- newEmptyMVar
-        -- Launch dispatchJob threads and notify on completion
           let jobCount = 4 -- Number of dispatchJob threads
           forM_ [1 .. jobCount] $ \i -> do
             forkIO $ do
+              -- TODO: hash i to between 65525, run lower_bound on the hash
+              -- against the ring, and look up the corresponding port in ring
+              -- and use the port instead of 3000 + i
               singleExchange (3000 + i) $ SubmitJob 10
               putMVar completionSignal () -- Signal completion
-        -- Wait for all jobs to finish
           forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
         _ -> print "nothing"
