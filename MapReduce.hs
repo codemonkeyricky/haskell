@@ -21,7 +21,8 @@ import           Network.Socket.ByteString
 import           System.Environment
 import           System.Exit
 import           System.IO
-import           System.Random             (randomRIO)
+import           System.Random             (StdGen, mkStdGen, randomRIO,
+                                            randomRs)
 import           Text.Printf
 
 data PersistState = PersistState
@@ -130,6 +131,11 @@ getRing :: Cluster -> Data.Map.Map Integer Integer
 getRing (Cluster a) =
   Data.Map.fromList
     $ concatMap (\server -> [(token, port server) | token <- tokens server]) a
+    -- Helper to generate n distinct random indices
+
+randomIndices :: Integer -> Int -> [Integer] -- Takes a seed as input
+randomIndices seed n =
+  Data.List.take n $ nub $ randomRs (0, 65525) (mkStdGen (fromInteger seed))
 
 -- port / peer
 node :: Integer -> Cluster -> IO ()
@@ -161,6 +167,7 @@ node my_port cluster = do
   let eventLoop listeningPort rx cluster workers db q =
         forever $ do
           let ring = getRing cluster
+          print cluster
           (maybe_tx, msg) <- readChan rx
           case msg of
             SubmitJob k -> do
@@ -183,7 +190,7 @@ node my_port cluster = do
               case maybe_tx of
                 Just tx -> do
                   -- writing nothing closes the socket
-                  writeChan tx Nothing 
+                  writeChan tx Nothing
                 Nothing -> return ()
               eventLoop listeningPort rx cluster'' workers db q
             Heartbeat -> do
@@ -221,7 +228,7 @@ node my_port cluster = do
                 [ Server
                     { port = my_port
                     , status = Online
-                    , tokens = [1, 2]
+                    , tokens = randomIndices my_port 3
                     , version = 1
                     }
                 ]
@@ -231,6 +238,7 @@ node my_port cluster = do
   sock <- socket AF_INET Stream defaultProtocol
   bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
+  -- job queue
   q <- newChan
   -- event loop, connection acceptor, timer heartbeat
   _ <- forkIO $ eventLoop my_port rx cluster' [] Data.Map.empty q
@@ -273,7 +281,7 @@ main = do
   -- seed
   DBL.putStr (serialize (SubmitJob 0))
   node 3000 Cluster {servers = []}
-  forM_ [1 .. 50] $ \i -> do
+  forM_ [1 .. 1] $ \i -> do
     forkIO
       $ node
           (3000 + i)
