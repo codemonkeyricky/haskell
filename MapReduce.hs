@@ -312,16 +312,13 @@ main = do
   -- seed
   DBL.putStr (serialize (SubmitJob 0))
   node 3000 Cluster {servers = []}
+  let seed =
+        Cluster
+          { servers =
+              [Server {port = 3000, status = Online, tokens = [], version = 0}]
+          }
   forM_ [1 .. 10] $ \i -> do
-    forkIO
-      $ node
-          (3000 + i)
-          Cluster
-            { servers =
-                [ Server
-                    {port = 3000, status = Online, tokens = [], version = 0}
-                ]
-            }
+    forkIO $ node (3000 + i) seed
   -- Create an MVar to track completion
   completionSignal <- newEmptyMVar
   -- Launch dispatchJob threads and notify on completion
