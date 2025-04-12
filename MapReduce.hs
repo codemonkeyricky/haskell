@@ -158,14 +158,14 @@ node my_port cluster = do
   let jobProcessor q = do
         forever $ do
           (rx, work) <- readChan q
-          print "job started..."
+          -- print "job started..."
           threadDelay 2000000
-          print "job completed!!!!!"
+          -- print "job completed!!!!!"
           writeChan rx $ Just (CompletedJob True)
   let eventLoop listeningPort rx cluster workers db q =
         forever $ do
           let ring = getRing cluster
-          print cluster
+          -- print cluster
           (maybe_tx, msg) <- readChan rx
           case msg of
             SubmitJob k -> do
@@ -183,8 +183,8 @@ node my_port cluster = do
               eventLoop listeningPort rx cluster'' workers db q
             GossipReply cluster' -> do
               let cluster'' = merge cluster cluster'
-              printf "%d:" listeningPort
-              print cluster''
+              -- printf "%d:" listeningPort
+              -- print cluster''
               case maybe_tx of
                 Just tx -> do
                   -- writing nothing closes the socket
@@ -192,11 +192,11 @@ node my_port cluster = do
                 Nothing -> return ()
               eventLoop listeningPort rx cluster'' workers db q
             Heartbeat -> do
-              print "heartbeat"
+              -- print "heartbeat"
               let peers = excludePort cluster listeningPort
               let list = servers peers
               case list of
-                [] -> print "empty"
+                [] -> pure ()
                 ll -> do
                   k <- randomRIO (0, length ll - 1)
                   let p = port $ ll !! k
@@ -273,8 +273,29 @@ rxPacket sock tx = do
             loop
         close sock
 
--- dispatchJob :: Int -> IO ()
--- dispatchJob port = do
+dispatchJob :: Int -> IO ()
+dispatchJob port = do
+  sock <- socket AF_INET Stream defaultProtocol
+  connectResult <-
+    try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
+      (Either IOException ())
+  case connectResult of
+    Left err -> do
+      putStrLn $ "Failed to connect to peer: " ++ show err
+      close sock
+      return ()
+    Right _ -> do
+      sendAll sock (DBL.toStrict $ serialize (SubmitJob 10))
+      print "job dispatched..."
+      msg <- recv sock 4096
+      if DB.null msg
+        then return ()
+        else do
+          case deserialize (DBL.fromStrict msg) of
+            Just evt -> print "job completed!"
+            Nothing  -> print "Invalid message!"
+      close sock
+
 main :: IO ()
 main = do
   let we = "whatever"
@@ -283,15 +304,18 @@ main = do
   -- seed
   DBL.putStr (serialize (SubmitJob 0))
   node 3000 Cluster {servers = []}
-  forM_ [1 .. 1] $ \i -> do
-    forkIO
-      $ node
-          (3000 + i)
-          Cluster
-            { servers =
-                [ Server
-                    {port = 3000, status = Online, tokens = [], version = 0}
-                ]
-            }
+  -- forM_ [1 .. 1] $ \i -> do
+  --   forkIO
+  --     $ node
+  --         (3000 + i)
+  --         Cluster
+  --           { servers =
+  --               [ Server
+  --                   {port = 3000, status = Online, tokens = [], version = 0}
+  --               ]
+            -- }
+  forkIO $ dispatchJob 3000
+  forkIO $ dispatchJob 3000
+  forkIO $ dispatchJob 3000
   forever $ threadDelay maxBound
   print "hello"
