@@ -143,8 +143,6 @@ node my_port cluster = do
   let exchange_gossip rx peer cluster = do
         -- create socket
         sock <- socket AF_INET Stream defaultProtocol
-        setSocketOption sock ReuseAddr 1
-        setSocketOption sock ReusePort 1
         -- connect with exception handling
         connectResult <-
           try $ connect sock (SockAddrInet peer 0) :: IO (Either IOException ())
@@ -236,6 +234,8 @@ node my_port cluster = do
   -- create socket and channel
   rx <- newChan
   sock <- socket AF_INET Stream defaultProtocol
+  setSocketOption sock ReuseAddr 1
+  setSocketOption sock ReusePort 1
   bind sock (SockAddrInet (fromIntegral my_port) 0)
   listen sock 5
   -- job queue
@@ -273,6 +273,8 @@ rxPacket sock tx = do
             loop
         close sock
 
+-- dispatchJob :: Int -> IO ()
+-- dispatchJob port = do
 main :: IO ()
 main = do
   let we = "whatever"
