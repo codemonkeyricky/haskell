@@ -304,6 +304,30 @@ dispatchJob port = do
             Nothing  -> print "Invalid message!"
       close sock
 
+singleExchange :: Int -> Message -> IO (Maybe Message)
+singleExchange port msg = do
+  sock <- socket AF_INET Stream defaultProtocol
+  connectResult <-
+    try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
+      (Either IOException ())
+  case connectResult of
+    Left err -> do
+      putStrLn $ "Failed to connect to peer: " ++ show err
+      close sock
+      return Nothing
+    Right _ -> do
+      sendAll sock (DBL.toStrict $ serialize $ msg)
+      msg <- recv sock 4096
+      close sock
+      if DB.null msg
+        then return Nothing
+        else do
+          case deserialize (DBL.fromStrict msg) of
+            Just evt -> return $ Just evt
+            Nothing  -> return Nothing
+
+-- getCluster :: Int -> Cluster
+-- getCluster :: (Int port)
 main :: IO ()
 main = do
   let we = "whatever"
@@ -319,13 +343,16 @@ main = do
           }
   forM_ [1 .. 10] $ \i -> do
     forkIO $ node (3000 + i) seed
+  -- sleep for 500ms to allow gossip
+  -- threadDelay 500000
+  -- ring <- getRing $ getCluster
   -- Create an MVar to track completion
   completionSignal <- newEmptyMVar
   -- Launch dispatchJob threads and notify on completion
   let jobCount = 4 -- Number of dispatchJob threads
   forM_ [1 .. jobCount] $ \i -> do
     forkIO $ do
-      dispatchJob (3000 + i)
+      singleExchange (3000 + i) $ SubmitJob 10
       putMVar completionSignal () -- Signal completion
   -- Wait for all jobs to finish
   forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
