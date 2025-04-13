@@ -36,6 +36,9 @@ fib n = do
 -- port / peer
 node :: Integer -> Cluster -> IO ()
 node my_port cluster = do
+  let timerHeartbeat rx = do
+        threadDelay 100000
+        writeChan rx (Nothing, Heartbeat)
   let exchange_gossip rx peer cluster = do
         -- create socket
         sock <- socket AF_INET Stream defaultProtocol
@@ -87,6 +90,7 @@ node my_port cluster = do
                   -- writing nothing closes the socket
                   writeChan tx Nothing
                 Nothing -> return ()
+              _ <- forkIO $ timerHeartbeat rx
               eventLoop listeningPort rx cluster'' workers db q
             Heartbeat -> do
               let tryPeers cl = do
@@ -114,10 +118,6 @@ node my_port cluster = do
         forever $ do
           (conn, _) <- accept sock
           forkIO (rxPacket conn rx)
-  let timerHeartbeat rx =
-        forever $ do
-          threadDelay 100000
-          writeChan rx (Nothing, Heartbeat)
   let cluster' =
         merge
           cluster
