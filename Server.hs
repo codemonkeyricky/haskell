@@ -90,7 +90,7 @@ node my_port cluster = do
                   -- writing nothing closes the socket
                   writeChan tx Nothing
                 Nothing -> return ()
-              _ <- forkIO $ timerHeartbeat rx
+              forkIO $ timerHeartbeat rx
               eventLoop listeningPort rx cluster'' workers db q
             Heartbeat -> do
               let tryPeers cl = do
@@ -103,14 +103,17 @@ node my_port cluster = do
                         let p = port k
                         success <- exchange_gossip rx (fromIntegral p) cl
                         if success
-                          then eventLoop listeningPort rx cl workers db q
+                          then do 
+                            -- printf "%d: starts gossiping.. new list" listeningPort
+                            -- print cl
+                            eventLoop listeningPort rx cl workers db q
                           else do
                             let cl' = excludePort cl p
                             printf
                               "%d: Failed to connect to %d\n"
                               listeningPort
                               p
-                            printf "%d: updated cluster" listeningPort
+                            printf "%d: updated cluster: " listeningPort
                             print cl'
                             tryPeers cl'
               tryPeers cluster
