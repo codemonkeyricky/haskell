@@ -135,7 +135,7 @@ getRing (Cluster a) =
 
 randomIndices :: Integer -> Int -> [Integer] -- Takes a seed as input
 randomIndices seed n =
-  Data.List.take n $ nub $ randomRs (0, 65525) (mkStdGen (fromInteger seed))
+  Data.List.take n $ nub $ randomRs (0, 65536) (mkStdGen (fromInteger seed))
 
 fib :: Integer -> Integer
 fib 0 = 0
@@ -326,7 +326,7 @@ singleExchange port msg = do
             Just evt -> return $ Just evt
             Nothing  -> return Nothing
 
-findServer :: Integer -> Map Integer Integer -> Integer
+findServer :: Integer -> Data.Map.Map Integer Integer -> Integer
 findServer hash ring =
   case Data.Map.lookupGE hash ring of
     Just (_, port) -> port
@@ -334,9 +334,9 @@ findServer hash ring =
 
 main :: IO ()
 main = do
-  let we = "whatever"
-  let h = hash we
-  print h
+  -- let we = "whatever"
+  -- let h = hash we
+  -- print h
   -- seed
   DBL.putStr (serialize (SubmitJob 0))
   node 3000 Cluster {servers = []}
@@ -360,10 +360,12 @@ main = do
           let jobCount = 4 -- Number of dispatchJob threads
           forM_ [1 .. jobCount] $ \i -> do
             forkIO $ do
-              -- TODO: hash i to between 65525, run lower_bound on the hash
-              -- against the ring, and look up the corresponding port in ring
-              -- and use the port instead of 3000 + i
-              singleExchange (3000 + i) $ SubmitJob 10
+              let hh = (hash (show i)) `mod` 65536
+              -- print i
+              print hh
+              let k = findServer (toInteger hh) ring
+              singleExchange (fromIntegral k) $ SubmitJob 10
+              -- singleExchange (3000 + i) $ SubmitJob 10
               putMVar completionSignal () -- Signal completion
           forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
         _ -> print "nothing"
