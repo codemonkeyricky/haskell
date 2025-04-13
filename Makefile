@@ -1,4 +1,4 @@
 all:
-	ghc MapReduce.hs -package hashable -package random -threaded
+	ghc Server.hs -package hashable -package random -threaded
 run:
-	./MapReduce  +RTS -N4
+	./Server  +RTS -N4

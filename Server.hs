@@ -351,8 +351,9 @@ main = do
                       }
                   ]
               }
-      forM_ [0 .. numNodes-1] $ \i -> do
+      forM_ [0 .. numNodes - 1] $ \i -> do
         forkIO $ node (startPort + i) seed
+      forever $ threadDelay 1000000
       -- sleep for 500ms to allow gossip
       threadDelay 500000
       resp <- singleExchange seedPort $ GossipRequest seed
