@@ -304,7 +304,7 @@ dispatchJob port = do
             Nothing  -> print "Invalid message!"
       close sock
 
-singleExchange :: Int -> Message -> IO (Maybe Message)
+singleExchange :: Integer -> Message -> IO (Maybe Message)
 singleExchange port msg = do
   sock <- socket AF_INET Stream defaultProtocol
   connectResult <-
@@ -334,38 +334,45 @@ findServer hash ring =
 
 main :: IO ()
 main = do
-  -- let we = "whatever"
-  -- let h = hash we
-  -- print h
-  -- seed
-  DBL.putStr (serialize (SubmitJob 0))
-  -- node 3000 Cluster {servers = []}
-  let seed =
-        Cluster
-          { servers =
-              [Server {port = 3000, status = Online, tokens = [], version = 0}]
-          }
-  forM_ [0 .. 10] $ \i -> do
-    forkIO $ node (3000 + i) seed
-  -- sleep for 500ms to allow gossip
-  threadDelay 500000
-  resp <- singleExchange 3000 $ GossipRequest seed
-  case resp of
-    Nothing -> print "x"
-    Just msg ->
-      case msg of
-        GossipReply cluster -> do
-          let ring = getRing cluster
-          completionSignal <- newEmptyMVar
-          let jobCount = 4 -- Number of dispatchJob threads
-          forM_ [1 .. jobCount] $ \i -> do
-            forkIO $ do
-              let hh = (hash (show i)) `mod` 65536
-              -- print i
-              print hh
-              let k = findServer (toInteger hh) ring
-              singleExchange (fromIntegral k) $ SubmitJob 10
-              -- singleExchange (3000 + i) $ SubmitJob 10
-              putMVar completionSignal () -- Signal completion
-          forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
-        _ -> print "nothing"
+  args <- getArgs
+  case args of
+    [startPortStr, numNodesStr, seedPortStr] -> do
+      let startPort = read startPortStr :: Integer
+          numNodes = read numNodesStr :: Integer
+          seedPort = read seedPortStr :: Integer
+      let seed =
+            Cluster
+              { servers =
+                  [ Server
+                      { port = seedPort
+                      , status = Online
+                      , tokens = []
+                      , version = 0
+                      }
+                  ]
+              }
+      forM_ [0 .. numNodes-1] $ \i -> do
+        forkIO $ node (startPort + i) seed
+      -- sleep for 500ms to allow gossip
+      threadDelay 500000
+      resp <- singleExchange seedPort $ GossipRequest seed
+      case resp of
+        Nothing -> print "x"
+        Just msg ->
+          case msg of
+            GossipReply cluster -> do
+              let ring = getRing cluster
+              completionSignal <- newEmptyMVar
+              let jobCount = 4 -- Number of dispatchJob threads
+              forM_ [1 .. jobCount] $ \i -> do
+                forkIO $ do
+                  let hh = (hash (show i)) `mod` 65536
+                  -- print i
+                  print hh
+                  let k = findServer (toInteger hh) ring
+                  singleExchange (fromIntegral k) $ SubmitJob 10
+                  -- singleExchange (3000 + i) $ SubmitJob 10
+                  putMVar completionSignal () -- Signal completion
+              forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
+            _ -> print "nothing"
+    _ -> putStrLn "Usage: ./MapReduce <startPort> <numNodes> <seedPort>"
