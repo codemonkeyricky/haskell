@@ -195,16 +195,20 @@ dispatchJob port = do
 singleExchange :: Integer -> Message -> IO (Maybe Message)
 singleExchange port msg = do
   sock <- socket AF_INET Stream defaultProtocol
+  print "trying to connect... "
   connectResult <-
     try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
       (Either IOException ())
+  print "connected"
   case connectResult of
     Left err -> do
       putStrLn $ "Failed to connect to peer: " ++ show err
       close sock
       return Nothing
     Right _ -> do
+      print "send payload..."
       sendAll sock (DBL.toStrict $ serialize $ msg)
+      print "waiting for respon ... "
       msg <- recv sock 4096
       close sock
       if DB.null msg
@@ -224,27 +228,21 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [startPortStr, numNodesStr, seedPortStr] -> do
+    [startPortStr, jobCountStr] -> do
       let startPort = read startPortStr :: Integer
-          numNodes = read numNodesStr :: Integer
-          seedPort = read seedPortStr :: Integer
+          jobCount = read jobCountStr :: Integer
       let seed =
             Cluster
               { servers =
                   [ Server
-                      { port = seedPort
+                      { port = startPort
                       , status = Online
                       , tokens = []
                       , version = 0
                       }
                   ]
               }
-    --   forM_ [0 .. numNodes - 1] $ \i -> do
-    --     forkIO $ node (startPort + i) seed
-    --   forever $ threadDelay 1000000
-    --   -- sleep for 500ms to allow gossip
-    --   threadDelay 500000
-      resp <- singleExchange seedPort $ GossipRequest seed
+      resp <- singleExchange startPort $ GossipRequest seed
       case resp of
         Nothing -> print "x"
         Just msg ->
@@ -252,16 +250,18 @@ main = do
             GossipReply cluster -> do
               let ring = getRing cluster
               completionSignal <- newEmptyMVar
-              let jobCount = 4 -- Number of dispatchJob threads
+              -- let jobCount = 16 -- Number of dispatchJob threads
               forM_ [1 .. jobCount] $ \i -> do
                 forkIO $ do
                   let hh = (hash (show i)) `mod` 65536
                   -- print i
                   print hh
                   let k = findServer (toInteger hh) ring
+                  let kk = show k
+                  print kk
                   singleExchange (fromIntegral k) $ SubmitJob 10
                   -- singleExchange (3000 + i) $ SubmitJob 10
                   putMVar completionSignal () -- Signal completion
               forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
             _ -> print "nothing"
-    _ -> putStrLn "Usage: ./MapReduce <startPort> <numNodes> <seedPort>"
+    _ -> putStrLn "Usage: ./MapReduce <peerPort> <jobCount>"

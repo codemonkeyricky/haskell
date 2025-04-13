@@ -56,7 +56,7 @@ node my_port cluster = do
           (rx, work) <- readChan q
           -- print "job started..."
           -- _ <- return $ busyWork 1000000000000
-          let x = fib 33
+          let x = fib 35
           print x
           writeChan rx $ Just (CompletedJob True)
   let eventLoop listeningPort rx cluster workers db q =
@@ -102,11 +102,6 @@ node my_port cluster = do
                     -- remove node failed to connect
                     let cluster' = excludePort cluster p
                     eventLoop listeningPort rx cluster' workers db q
-            -- CompletedJob msg -> do
-            --   case maybe_tx of
-            --     Just tx -> do
-            --     Nothing -> return ()
-                  -- forkIO $ txEvent tx msg
   let rxConn sock rx =
         forever $ do
           (conn, _) <- accept sock
@@ -123,7 +118,7 @@ node my_port cluster = do
                 [ Server
                     { port = my_port
                     , status = Online
-                    , tokens = randomIndices my_port 3
+                    , tokens = randomIndices my_port 1
                     , version = 1
                     }
                 ]
@@ -236,7 +231,7 @@ main = do
                       { port = seedPort
                       , status = Online
                       , tokens = []
-                      , version = 0
+                      , version = 1
                       }
                   ]
               }
