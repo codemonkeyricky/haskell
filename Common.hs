@@ -5,9 +5,11 @@ module Common where
 
 import           Control.Concurrent
 import           Control.Exception
+import           Control.Monad
 import           Control.Monad             (forM_, forever, void, when)
 import           Control.Monad.Fix         (fix)
 import           Data.Aeson                (FromJSON, ToJSON, decode, encode)
+import           Data.Array.IO
 import qualified Data.ByteString           as DB
 import qualified Data.ByteString.Lazy      as DBL
 import           Data.Function             (on)
@@ -21,6 +23,7 @@ import           Network.Socket.ByteString
 import           System.Environment
 import           System.Exit
 import           System.IO
+import           System.Random
 import           System.Random             (StdGen, mkStdGen, randomRIO,
                                             randomRs)
 import           Text.Printf
@@ -136,3 +139,19 @@ getRing (Cluster a) =
 randomIndices :: Integer -> Int -> [Integer] -- Takes a seed as input
 randomIndices seed n =
   Data.List.take n $ nub $ randomRs (0, 65536) (mkStdGen (fromInteger seed))
+
+-- | Randomly shuffle a list
+--   /O(N)/
+shuffle :: [a] -> IO [a]
+shuffle xs = do
+  ar <- newArray n xs
+  forM [1 .. n] $ \i -> do
+    j <- randomRIO (i, n)
+    vi <- readArray ar i
+    vj <- readArray ar j
+    writeArray ar j vi
+    return vj
+  where
+    n = length xs
+    newArray :: Int -> [a] -> IO (IOArray Int a)
+    newArray n xs = newListArray (1, n) xs

@@ -95,11 +95,11 @@ node my_port cluster = do
               case list of
                 [] -> pure ()
                 ll -> do
-                  k <- randomRIO (0, length ll - 1)
-                  let p = port $ ll !! k
+                  (k:_) <- shuffle ll
+                  -- TODO: retry until success
+                  let p = port k
                   success <- exchange_gossip rx (fromIntegral p) cluster
                   when (not success) $ do
-                    -- remove node failed to connect
                     let cluster' = excludePort cluster p
                     eventLoop listeningPort rx cluster' workers db q
   let rxConn sock rx =
