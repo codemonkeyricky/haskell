@@ -243,26 +243,4 @@ main = do
       forM_ [0 .. numNodes - 1] $ \i -> do
         forkIO $ node (startPort + i) seed
       forever $ threadDelay 1000000
-      -- sleep for 500ms to allow gossip
-      threadDelay 500000
-      resp <- singleExchange seedPort $ GossipRequest seed
-      case resp of
-        Nothing -> print "x"
-        Just msg ->
-          case msg of
-            GossipReply cluster -> do
-              let ring = getRing cluster
-              completionSignal <- newEmptyMVar
-              let jobCount = 4 -- Number of dispatchJob threads
-              forM_ [1 .. jobCount] $ \i -> do
-                forkIO $ do
-                  let hh = (hash (show i)) `mod` 65536
-                  -- print i
-                  print hh
-                  let k = findServer (toInteger hh) ring
-                  singleExchange (fromIntegral k) $ SubmitJob 10
-                  -- singleExchange (3000 + i) $ SubmitJob 10
-                  putMVar completionSignal () -- Signal completion
-              forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
-            _ -> print "nothing"
     _ -> putStrLn "Usage: ./MapReduce <startPort> <numNodes> <seedPort>"
