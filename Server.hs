@@ -89,19 +89,27 @@ node my_port cluster = do
                 Nothing -> return ()
               eventLoop listeningPort rx cluster'' workers db q
             Heartbeat -> do
-              -- print "heartbeat"
-              let peers = excludePort cluster listeningPort
-              let list = servers peers
-              case list of
-                [] -> pure ()
-                ll -> do
-                  (k:_) <- shuffle ll
-                  -- TODO: retry until success
-                  let p = port k
-                  success <- exchange_gossip rx (fromIntegral p) cluster
-                  when (not success) $ do
-                    let cluster' = excludePort cluster p
-                    eventLoop listeningPort rx cluster' workers db q
+              let tryPeers cl = do
+                    let all_peers = excludePort cl listeningPort
+                    let all_servers = servers all_peers
+                    shuffled <- shuffle all_servers
+                    case shuffled of
+                      [] -> eventLoop listeningPort rx cl workers db q
+                      (k:ks) -> do
+                        let p = port k
+                        success <- exchange_gossip rx (fromIntegral p) cl
+                        if success
+                          then eventLoop listeningPort rx cl workers db q
+                          else do
+                            let cl' = excludePort cl p
+                            printf
+                              "%d: Failed to connect to %d\n"
+                              listeningPort
+                              p
+                            printf "%d: updated cluster" listeningPort
+                            print cl'
+                            tryPeers cl'
+              tryPeers cluster
   let rxConn sock rx =
         forever $ do
           (conn, _) <- accept sock
