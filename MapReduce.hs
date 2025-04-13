@@ -339,13 +339,13 @@ main = do
   -- print h
   -- seed
   DBL.putStr (serialize (SubmitJob 0))
-  node 3000 Cluster {servers = []}
+  -- node 3000 Cluster {servers = []}
   let seed =
         Cluster
           { servers =
               [Server {port = 3000, status = Online, tokens = [], version = 0}]
           }
-  forM_ [1 .. 10] $ \i -> do
+  forM_ [0 .. 10] $ \i -> do
     forkIO $ node (3000 + i) seed
   -- sleep for 500ms to allow gossip
   threadDelay 500000
