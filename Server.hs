@@ -94,7 +94,8 @@ node my_port cluster = do
               eventLoop listeningPort rx cluster'' workers db q
             Heartbeat -> do
               let tryPeers cl = do
-                    let all_peers = excludePort cl listeningPort
+                    let all_peers =
+                          excludeOffline $ excludePort cl listeningPort
                     let all_servers = servers all_peers
                     shuffled <- shuffle all_servers
                     case shuffled of
@@ -103,17 +104,20 @@ node my_port cluster = do
                         let p = port k
                         success <- exchange_gossip rx (fromIntegral p) cl
                         if success
-                          then do 
-                            -- printf "%d: starts gossiping.. new list" listeningPort
-                            -- print cl
+                          then do
                             eventLoop listeningPort rx cl workers db q
                           else do
-                            let cl' = excludePort cl p
-                            printf
-                              "%d: Failed to connect to %d\n"
-                              listeningPort
-                              p
-                            printf "%d: updated cluster: " listeningPort
+                            let updatedPeers =
+                                  Data.List.map
+                                    (\s ->
+                                       if port s == p
+                                         then s
+                                                { status = Offline
+                                                , version = version s + 1
+                                                }
+                                         else s)
+                                    (servers cl)
+                            let cl' = Cluster {servers = updatedPeers}
                             print cl'
                             tryPeers cl'
               tryPeers cluster

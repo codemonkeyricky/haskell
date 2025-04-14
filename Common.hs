@@ -124,6 +124,10 @@ excludePort :: Cluster -> Integer -> Cluster
 excludePort (Cluster servers) to_remove =
   Cluster $ Data.List.filter (\server -> port server /= to_remove) servers
 
+excludeOffline :: Cluster -> Cluster
+excludeOffline (Cluster servers) =
+  Cluster $ Data.List.filter (\server -> status server /= Offline) servers
+
 serialize :: Message -> DBL.ByteString
 serialize = encode
 
