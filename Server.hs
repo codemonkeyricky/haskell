@@ -30,7 +30,6 @@ fib :: Integer -> Integer
 fib 0 = 0
 fib 1 = 1
 fib n = do
-    -- print "x"
   fib (n - 1) + fib (n - 2) -- Intentionally inefficient recursive version
 
 -- port / peer
