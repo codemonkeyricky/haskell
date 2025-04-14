@@ -248,7 +248,8 @@ main = do
         Just msg ->
           case msg of
             GossipReply cluster -> do
-              let ring = getRing cluster
+              print cluster
+              let ring = getRing $ excludeOffline cluster
               completionSignal <- newEmptyMVar
               -- let jobCount = 16 -- Number of dispatchJob threads
               forM_ [1 .. jobCount] $ \i -> do
