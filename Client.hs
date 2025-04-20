@@ -210,6 +210,13 @@ findServer hash ring =
     Just (_, port) -> port
     Nothing        -> snd (Data.Map.findMin ring)
 
+getCluster :: Integer -> Cluster -> MaybeT IO Cluster
+getCluster port seed = do
+  msg <- singleExchange port (GossipRequest seed)
+  case msg of
+    GossipReply cluster -> return cluster
+    _                   -> MaybeT $ return Nothing
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -229,6 +236,7 @@ main = do
                   ]
               }
       resp <- runMaybeT $ singleExchange startPort $ GossipRequest seed
+      -- TODO: turn this part into monad to reduce staircasing
       case resp of
         Nothing -> print "x"
         Just msg -> do
