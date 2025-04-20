@@ -200,49 +200,10 @@ dispatch sock tx = do
 -- dispatch :: Sock -> ByteString -> Maybe ByteString
 singleExchange :: Integer -> Message -> MaybeT IO (Message)
 singleExchange port job = do
-    -- 1. TODO: getSock :: Integer -> Maybe Socket
   sock <- connectToPeer port
   msg <- dispatch sock job
   return msg
-        -- -- 2. TODO: dispatch :: Maybe Socket -> Maybe ByteString
-        -- sendAll sock
-        -- print "job dispatched..."
-        -- msg <- recv sock 4096
-        -- if DB.null msg
-        --   then return ()
-        --   else do
-        --     case deserialize (DBL.fromStrict msg) of
-        --       -- 3. TODO: getEvent :: Maybe ByteString -> Maybe Event
-        --       Just evt -> print "job completed!"
-        --       Nothing  -> print "Invalid message!"
-        -- close sock
-    -- print "x"
 
--- singleExchange :: Integer -> Message -> IO (Maybe Message)
--- singleExchange port msg = do
---   sock <- socket AF_INET Stream defaultProtocol
---   print "trying to connect... "
---   connectResult <-
---     try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
---       (Either IOException ())
---   print "connected"
---   case connectResult of
---     Left err -> do
---       putStrLn $ "Failed to connect to peer: " ++ show err
---       close sock
---       return Nothing
---     Right _ -> do
---       print "send payload..."
---       sendAll sock (DBL.toStrict $ serialize $ msg)
---       print "waiting for respon ... "
---       msg <- recv sock 4096
---       close sock
---       if DB.null msg
---         then return Nothing
---         else do
---           case deserialize (DBL.fromStrict msg) of
---             Just evt -> return $ Just evt
---             Nothing  -> return Nothing
 findServer :: Integer -> Data.Map.Map Integer Integer -> Integer
 findServer hash ring =
   case Data.Map.lookupGE hash ring of
