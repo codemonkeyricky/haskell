@@ -171,6 +171,7 @@ rxPacket sock tx = do
 
 dispatchJob :: Int -> IO ()
 dispatchJob port = do
+  -- 1. TODO: getSock :: Integer -> Maybe Socket
   sock <- socket AF_INET Stream defaultProtocol
   connectResult <-
     try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
@@ -181,6 +182,7 @@ dispatchJob port = do
       close sock
       return ()
     Right _ -> do
+      -- 2. TODO: dispatch :: Maybe Socket -> Maybe ByteString
       sendAll sock (DBL.toStrict $ serialize (SubmitJob 10))
       print "job dispatched..."
       msg <- recv sock 4096
@@ -188,6 +190,7 @@ dispatchJob port = do
         then return ()
         else do
           case deserialize (DBL.fromStrict msg) of
+            -- 3. TODO: getEvent :: Maybe ByteString -> Maybe Event
             Just evt -> print "job completed!"
             Nothing  -> print "Invalid message!"
       close sock
