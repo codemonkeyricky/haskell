@@ -8,6 +8,7 @@ import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad             (forM_, forever, void, when)
 import           Control.Monad.Fix         (fix)
+import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import           Data.Aeson                (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString           as DB
 import qualified Data.ByteString.Lazy      as DBL
@@ -169,31 +170,53 @@ rxPacket sock tx = do
             loop
         close sock
 
-dispatchJob :: Int -> IO ()
+-- connectToPeer :: Integer -> Maybe Sock
+connectToPeer :: Integer -> MaybeT IO Socket
+connectToPeer port = do
+  MaybeT $ do
+    sock <- socket AF_INET Stream defaultProtocol
+    connectResult <-
+      try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
+        (Either IOException ())
+    case connectResult of
+      Right _ -> return (Just sock)
+      Left _ -> do
+        close sock
+        return Nothing
+
+dispatch :: Socket -> DB.ByteString -> MaybeT IO Message
+dispatch sock tx = do
+  MaybeT $ do
+    sendAll sock (DBL.toStrict $ serialize (SubmitJob 10))
+    msg <- recv sock 4096
+    if DB.null msg
+      then return Nothing
+      else do
+        close sock
+        case deserialize (DBL.fromStrict msg) of
+          Just evt -> return (Just evt)
+          Nothing  -> return Nothing
+
+-- dispatch :: Sock -> ByteString -> Maybe ByteString
+dispatchJob :: Integer -> MaybeT IO ()
 dispatchJob port = do
-  -- 1. TODO: getSock :: Integer -> Maybe Socket
-  sock <- socket AF_INET Stream defaultProtocol
-  connectResult <-
-    try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
-      (Either IOException ())
-  case connectResult of
-    Left err -> do
-      putStrLn $ "Failed to connect to peer: " ++ show err
-      close sock
-      return ()
-    Right _ -> do
-      -- 2. TODO: dispatch :: Maybe Socket -> Maybe ByteString
-      sendAll sock (DBL.toStrict $ serialize (SubmitJob 10))
-      print "job dispatched..."
-      msg <- recv sock 4096
-      if DB.null msg
-        then return ()
-        else do
-          case deserialize (DBL.fromStrict msg) of
-            -- 3. TODO: getEvent :: Maybe ByteString -> Maybe Event
-            Just evt -> print "job completed!"
-            Nothing  -> print "Invalid message!"
-      close sock
+    -- 1. TODO: getSock :: Integer -> Maybe Socket
+  sock <- connectToPeer port
+  msg <- dispatch sock (DBL.toStrict $ serialize (SubmitJob 10))
+  return ()
+        -- -- 2. TODO: dispatch :: Maybe Socket -> Maybe ByteString
+        -- sendAll sock
+        -- print "job dispatched..."
+        -- msg <- recv sock 4096
+        -- if DB.null msg
+        --   then return ()
+        --   else do
+        --     case deserialize (DBL.fromStrict msg) of
+        --       -- 3. TODO: getEvent :: Maybe ByteString -> Maybe Event
+        --       Just evt -> print "job completed!"
+        --       Nothing  -> print "Invalid message!"
+        -- close sock
+    -- print "x"
 
 singleExchange :: Integer -> Message -> IO (Maybe Message)
 singleExchange port msg = do
