@@ -175,19 +175,19 @@ connectToPeer :: Integer -> MaybeT IO Socket
 connectToPeer port = do
   MaybeT $ do
     sock <- socket AF_INET Stream defaultProtocol
-    connectResult <-
+    rv <-
       try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
         (Either IOException ())
-    case connectResult of
+    case rv of
       Right _ -> return (Just sock)
       Left _ -> do
         close sock
         return Nothing
 
-dispatch :: Socket -> DB.ByteString -> MaybeT IO Message
+dispatch :: Socket -> Message -> MaybeT IO Message
 dispatch sock tx = do
   MaybeT $ do
-    sendAll sock (DBL.toStrict $ serialize (SubmitJob 10))
+    sendAll sock (DBL.toStrict $ (serialize tx))
     msg <- recv sock 4096
     if DB.null msg
       then return Nothing
@@ -198,12 +198,12 @@ dispatch sock tx = do
           Nothing  -> return Nothing
 
 -- dispatch :: Sock -> ByteString -> Maybe ByteString
-dispatchJob :: Integer -> MaybeT IO ()
-dispatchJob port = do
+singleExchange :: Integer -> Message -> MaybeT IO (Message)
+singleExchange port job = do
     -- 1. TODO: getSock :: Integer -> Maybe Socket
   sock <- connectToPeer port
-  msg <- dispatch sock (DBL.toStrict $ serialize (SubmitJob 10))
-  return ()
+  msg <- dispatch sock job
+  return msg
         -- -- 2. TODO: dispatch :: Maybe Socket -> Maybe ByteString
         -- sendAll sock
         -- print "job dispatched..."
@@ -218,32 +218,31 @@ dispatchJob port = do
         -- close sock
     -- print "x"
 
-singleExchange :: Integer -> Message -> IO (Maybe Message)
-singleExchange port msg = do
-  sock <- socket AF_INET Stream defaultProtocol
-  print "trying to connect... "
-  connectResult <-
-    try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
-      (Either IOException ())
-  print "connected"
-  case connectResult of
-    Left err -> do
-      putStrLn $ "Failed to connect to peer: " ++ show err
-      close sock
-      return Nothing
-    Right _ -> do
-      print "send payload..."
-      sendAll sock (DBL.toStrict $ serialize $ msg)
-      print "waiting for respon ... "
-      msg <- recv sock 4096
-      close sock
-      if DB.null msg
-        then return Nothing
-        else do
-          case deserialize (DBL.fromStrict msg) of
-            Just evt -> return $ Just evt
-            Nothing  -> return Nothing
-
+-- singleExchange :: Integer -> Message -> IO (Maybe Message)
+-- singleExchange port msg = do
+--   sock <- socket AF_INET Stream defaultProtocol
+--   print "trying to connect... "
+--   connectResult <-
+--     try $ connect sock (SockAddrInet (fromIntegral port) 0) :: IO
+--       (Either IOException ())
+--   print "connected"
+--   case connectResult of
+--     Left err -> do
+--       putStrLn $ "Failed to connect to peer: " ++ show err
+--       close sock
+--       return Nothing
+--     Right _ -> do
+--       print "send payload..."
+--       sendAll sock (DBL.toStrict $ serialize $ msg)
+--       print "waiting for respon ... "
+--       msg <- recv sock 4096
+--       close sock
+--       if DB.null msg
+--         then return Nothing
+--         else do
+--           case deserialize (DBL.fromStrict msg) of
+--             Just evt -> return $ Just evt
+--             Nothing  -> return Nothing
 findServer :: Integer -> Data.Map.Map Integer Integer -> Integer
 findServer hash ring =
   case Data.Map.lookupGE hash ring of
@@ -268,10 +267,10 @@ main = do
                       }
                   ]
               }
-      resp <- singleExchange startPort $ GossipRequest seed
+      resp <- runMaybeT $ singleExchange startPort $ GossipRequest seed
       case resp of
         Nothing -> print "x"
-        Just msg ->
+        Just msg -> do
           case msg of
             GossipReply cluster -> do
               print cluster
@@ -286,9 +285,8 @@ main = do
                   let k = findServer (toInteger hh) ring
                   let kk = show k
                   print kk
-                  singleExchange (fromIntegral k) $ SubmitJob 10
-                  -- singleExchange (3000 + i) $ SubmitJob 10
+                  runMaybeT $ singleExchange (fromIntegral k) $ SubmitJob 10
                   putMVar completionSignal () -- Signal completion
               forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
-            _ -> print "nothing"
+            _ -> print "x"
     _ -> putStrLn "Usage: ./MapReduce <peerPort> <jobCount>"
