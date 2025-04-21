@@ -8,6 +8,7 @@ import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad             (forM_, forever, void, when)
 import           Control.Monad.Fix         (fix)
+import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import           Data.Aeson                (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString           as DB
@@ -235,27 +236,49 @@ main = do
                       }
                   ]
               }
-      resp <- runMaybeT $ singleExchange startPort $ GossipRequest seed
-      -- TODO: turn this part into monad to reduce staircasing
-      case resp of
-        Nothing -> print "x"
-        Just msg -> do
-          case msg of
-            GossipReply cluster -> do
-              print cluster
-              let ring = getRing . excludeOffline $ cluster
-              completionSignal <- newEmptyMVar
-              -- let jobCount = 16 -- Number of dispatchJob threads
-              forM_ [1 .. jobCount] $ \i -> do
-                forkIO $ do
-                  let hh = (hash (show i)) `mod` 65536
-                  -- print i
-                  print hh
-                  let k = findServer (toInteger hh) ring
-                  let kk = show k
-                  print kk
-                  runMaybeT $ singleExchange (fromIntegral k) $ SubmitJob 10
-                  putMVar completionSignal () -- Signal completion
-              forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
-            _ -> print "x"
+      void
+        $ runMaybeT
+        $ do
+            cluster <- getCluster startPort seed
+            let ring = getRing . excludeOffline $ cluster
+            completionSignal <- liftIO newEmptyMVar
+            liftIO
+              $ forM_ [1 .. jobCount]
+              $ \i -> do
+                  forkIO $ do
+                    let hh = (hash (show i)) `mod` 65536
+                -- print i
+                    print hh
+                    let k = findServer (toInteger hh) ring
+                    let kk = show k
+                    print kk
+                    void
+                      $ runMaybeT
+                      $ singleExchange (fromIntegral k)
+                      $ SubmitJob 10
+                    liftIO $ putMVar completionSignal () -- Signal completion
+            liftIO $ forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
+            return ()
+-- TODO: turn this part into monad to reduce staircasing
+      -- case resp of
+      --   Nothing -> print "x"
+      --   Just msg -> do
+      --     case msg of
+      --       GossipReply cluster -> do
+      --         print cluster
+      --         let ring = getRing . excludeOffline $ cluster
+      --         completionSignal <- newEmptyMVar
+      --         -- let jobCount = 16 -- Number of dispatchJob threads
+      --         forM_ [1 .. jobCount] $ \i -> do
+      --           forkIO $ do
+      --             let hh = (hash (show i)) `mod` 65536
+      --             -- print i
+      --             print hh
+      --             let k = findServer (toInteger hh) ring
+      --             let kk = show k
+      --             print kk
+      --             runMaybeT $ singleExchange (fromIntegral k) $ SubmitJob 10
+      --             putMVar completionSignal () -- Signal completion
+      --         forM_ [1 .. jobCount] $ \_ -> takeMVar completionSignal
+      --       _ -> print "x"
     _ -> putStrLn "Usage: ./MapReduce <peerPort> <jobCount>"
