@@ -32,18 +32,9 @@ RUN ghcup install cabal latest --set
 # Verify installations
 RUN ghc --version && cabal --version
 
-
 RUN git clone https://github.com/codemonkeyricky/haskell.git
 
-
-RUN cabal install --lib hashable 
-RUN cabal install --lib random 
-RUN cabal install --lib network
-RUN cabal install --lib aeson
-RUN cabal install --lib array
-RUN cabal install --lib bytestring
-RUN cabal install --lib containers
-RUN cabal install --lib transformers 
+RUN cabal install --lib hashable random network aeson array bytestring containers transformers
 
 RUN cd haskell && make && cd - 
 
