@@ -249,7 +249,7 @@ main = do
                       }
                   ]
               }
-      forM_ [0 .. numNodes - 1] $ \i -> do
-        forkIO $ node (startPort + i) seed
+      -- forM_ [0 .. numNodes - 1] $ \i -> do
+      --   forkIO $ node (startPort + i) seed
       forever $ threadDelay 1000000
     _ -> putStrLn "Usage: ./MapReduce <startPort> <numNodes> <seedPort>"
